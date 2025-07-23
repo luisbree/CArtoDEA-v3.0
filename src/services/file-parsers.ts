@@ -7,14 +7,14 @@ import * as JSZip from 'jszip';
 import shp from 'shpjs';
 import { nanoid } from 'nanoid';
 import type { MapLayer } from '@/lib/types';
-import type { Toast } from '@/hooks/use-toast';
+import type { useToast } from '@/hooks/use-toast';
 import type Feature from 'ol/Feature';
 
 interface FileUploadParams {
     selectedFile: File | null;
     selectedMultipleFiles: FileList | null;
     onAddLayer: (layer: MapLayer) => void;
-    toast: (options: Parameters<typeof Toast>[0]) => void;
+    toast: ReturnType<typeof useToast>['toast'];
     uniqueIdPrefix: string;
 }
 
