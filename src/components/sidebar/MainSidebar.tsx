@@ -42,7 +42,7 @@ export function MainSidebar({
             <p className="text-sm text-muted-foreground">AI-Powered Map Explorer</p>
           </div>
           <div className="ml-auto">
-             <SidebarTrigger asChild><Button variant="ghost" size="icon"><Search/></Button></SidebarTrigger>
+             <SidebarTrigger><Button variant="ghost" size="icon"><Search/></Button></SidebarTrigger>
           </div>
         </div>
       </SidebarHeader>
