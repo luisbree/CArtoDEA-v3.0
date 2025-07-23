@@ -204,39 +204,36 @@ let eeInitialized: Promise<void> | null = null;
 async function authenticateAndInitialize() {
   const authType = process.env.EE_AUTH_TYPE;
 
-  if (authType === 'SERVICE_ACCOUNT') {
-    const serviceAccountKey = process.env.EE_SERVICE_ACCOUNT_KEY;
-    if (!serviceAccountKey) {
-      throw new Error('La variable de entorno EE_SERVICE_ACCOUNT_KEY no está configurada para la autenticación GEE.');
-    }
-    try {
-      const keyObject = JSON.parse(serviceAccountKey);
-      
-      // Use the promise directly
-      await ee.data.authenticateViaPrivateKey(keyObject);
+  const authenticate = promisify(
+    authType === 'SERVICE_ACCOUNT'
+      ? (key: any, cb: (err?: Error) => void) => ee.data.authenticateViaPrivateKey(key, cb)
+      : (authCode: null, cb: (err?: Error) => void) => ee.data.authenticateViaOauth(process.env.EE_CLIENT_ID, cb)
+  );
 
-    } catch (e: any) {
-      if (e instanceof SyntaxError) {
-        throw new Error('No se pudo parsear el JSON de la clave de la cuenta de servicio (EE_SERVICE_ACCOUNT_KEY). Verifique que sea una cadena JSON válida de una sola línea.');
-      }
-      throw new Error(`Fallo en la autenticación con la cuenta de servicio de Earth Engine: ${e.message}`);
-    }
-  } else {
-    try {
-      // Use the promise directly
-      await ee.data.authenticateViaADC();
-    } catch(e: any) {
-       throw new Error(`La autenticación a través de Credenciales Predeterminadas de Aplicación falló. Asegúrese de que su entorno esté configurado correctamente (por ejemplo, a través de 'gcloud auth application-default login'). Error: ${e.message}`);
-    }
-  }
-
-  // After authentication, initialize the library
+  const initialize = promisify(
+    (cb: (err?: Error) => void) => ee.initialize(null, null, cb)
+  );
+  
   try {
-     // Use the promise directly
-    await ee.initialize(null, null, null);
+    if (authType === 'SERVICE_ACCOUNT') {
+      const serviceAccountKey = process.env.EE_SERVICE_ACCOUNT_KEY;
+      if (!serviceAccountKey) {
+        throw new Error('La variable de entorno EE_SERVICE_ACCOUNT_KEY no está configurada para la autenticación GEE.');
+      }
+      const keyObject = JSON.parse(serviceAccountKey);
+      await authenticate(keyObject);
+    } else {
+      await authenticate(null);
+    }
+
+    await initialize();
     console.log('Earth Engine initialized successfully.');
+
   } catch (e: any) {
-    throw new Error(`Fallo al inicializar Earth Engine después de la autenticación: ${e.message}`);
+    if (e instanceof SyntaxError) {
+        throw new Error('No se pudo parsear el JSON de la clave de la cuenta de servicio (EE_SERVICE_ACCOUNT_KEY). Verifique que sea una cadena JSON válida de una sola línea.');
+    }
+    throw new Error(`Fallo en la autenticación/inicialización con Earth Engine: ${e.message}`);
   }
 }
 
