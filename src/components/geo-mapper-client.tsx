@@ -740,7 +740,7 @@ export default function GeoMapperClient() {
                   togglePanelMinimize('attributes');
               }
             }}
-            onExtractByPolygon={(layerId) => layerManagerHook.handleExtractByPolygon(layerId)}
+            onExtractByPolygon={layerManagerHook.handleExtractByPolygon}
             onExtractBySelection={layerManagerHook.handleExtractBySelection}
             onExportLayer={layerManagerHook.handleExportLayer}
             onRenameLayer={layerManagerHook.renameLayer}
