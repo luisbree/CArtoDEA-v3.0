@@ -212,8 +212,8 @@ async function authenticateAndInitialize() {
     try {
       const keyObject = JSON.parse(serviceAccountKey);
       
-      const privateKeyAuth = promisify(ee.data.authenticateViaPrivateKey).bind(ee.data);
-      await privateKeyAuth(keyObject);
+      // Use the promise directly
+      await ee.data.authenticateViaPrivateKey(keyObject);
 
     } catch (e: any) {
       if (e instanceof SyntaxError) {
@@ -223,8 +223,8 @@ async function authenticateAndInitialize() {
     }
   } else {
     try {
-      const adcAuth = promisify(ee.data.authenticateViaAADC).bind(ee.data);
-      await adcAuth({});
+      // Use the promise directly
+      await ee.data.authenticateViaADC();
     } catch(e: any) {
        throw new Error(`La autenticación a través de Credenciales Predeterminadas de Aplicación falló. Asegúrese de que su entorno esté configurado correctamente (por ejemplo, a través de 'gcloud auth application-default login'). Error: ${e.message}`);
     }
@@ -232,8 +232,8 @@ async function authenticateAndInitialize() {
 
   // After authentication, initialize the library
   try {
-    const initialize = promisify(ee.initialize).bind(ee);
-    await initialize(null, null);
+     // Use the promise directly
+    await ee.initialize(null, null, null);
     console.log('Earth Engine initialized successfully.');
   } catch (e: any) {
     throw new Error(`Fallo al inicializar Earth Engine después de la autenticación: ${e.message}`);
