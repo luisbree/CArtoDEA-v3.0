@@ -116,13 +116,10 @@ const geeTileLayerFlow = ai.defineFlow(
       
       const { finalImage, visParams } = getImageForProcessing(input);
 
-      const mapDetails = await new Promise<any>((resolve, reject) => {
-        finalImage.getMap(visParams, (map: any, error: string | null) => {
-            if (error) return reject(new Error(error));
-            if (!map || !map.urlFormat) return reject(new Error('Respuesta inválida de getMap.'));
-            resolve(map);
-        });
-      });
+      const mapDetails = await promisify(finalImage.getMap.bind(finalImage))(visParams);
+      if (!mapDetails || !mapDetails.urlFormat) {
+          throw new Error('Respuesta inválida de getMap.');
+      }
       
       const tileUrl = mapDetails.urlFormat.replace('{x}', '{x}').replace('{y}', '{y}').replace('{z}', '{z}');
       
@@ -153,32 +150,33 @@ const geeDownloadUrlFlow = ai.defineFlow(
 
         const { finalImage, visParams, geometry } = getImageForProcessing(input);
 
-        // Get the download URL for a PNG of the region.
-        // We visualize it first to apply palettes, then get the download URL for that visualization.
-        const downloadUrl = await new Promise<string>((resolve, reject) => {
-            finalImage.visualize(visParams).getDownloadURL({
-                name: 'gee_image_export',
-                // No bands needed here as we are downloading the visualized image
-                region: geometry,
-                scale: 30, // Adjust scale for desired resolution
-                format: 'PNG',
-            }, (url, error) => {
-                if (error) return reject(new Error(error));
-                if (!url) return reject(new Error("GEE no devolvió una URL de descarga."));
-                resolve(url);
-            });
+        // First, create a visualized image with the correct palette/bands.
+        const visualizedImage = finalImage.visualize(visParams);
+        
+        // Then, get the download URL for that visualized image.
+        const getDownloadUrlPromise = promisify(visualizedImage.getDownloadURL.bind(visualizedImage));
+        const downloadUrl = await getDownloadUrlPromise({
+            name: 'gee_image_export',
+            region: geometry,
+            scale: 30, // Adjust scale for desired resolution
+            format: 'PNG',
         });
         
-        const imageInfo = await promisify(finalImage.getInfo.bind(finalImage))();
-        const crsTransform = imageInfo.bands[0].crs_transform;
+        if (!downloadUrl) {
+            throw new Error("GEE no devolvió una URL de descarga.");
+        }
+        
+        // To get the dimensions, we need to get info on the original image, not the visualized one.
+        const getImageInfoPromise = promisify(finalImage.getInfo.bind(finalImage));
+        const imageInfo = await getImageInfoPromise();
+        
+        if (!imageInfo || !imageInfo.bands || !imageInfo.bands[0] || !imageInfo.bands[0].dimensions) {
+             throw new Error("No se pudo obtener la información de la imagen de GEE.");
+        }
         const dimensions = imageInfo.bands[0].dimensions;
         
-        const bbox = [
-            crsTransform[2],
-            crsTransform[5] + dimensions[1] * crsTransform[4] + dimensions[0] * crsTransform[3],
-            crsTransform[2] + dimensions[1] * crsTransform[1] + dimensions[0] * crsTransform[0],
-            crsTransform[5],
-        ];
+        // Bbox comes from the input Area of Interest
+        const bbox = [input.aoi.minLon, input.aoi.minLat, input.aoi.maxLon, input.aoi.maxLat];
 
         return {
             downloadUrl,
