@@ -31,14 +31,3 @@ export const GeeTileLayerOutputSchema = z.object({
   tileUrl: z.string().describe("The XYZ tile URL template for the generated GEE layer."),
 });
 export type GeeTileLayerOutput = z.infer<typeof GeeTileLayerOutputSchema>;
-
-// Schemas for the new download functionality
-export const GeeDownloadUrlOutputSchema = z.object({
-  downloadUrl: z.string().url().describe("The URL to download the generated image."),
-  bbox: z.array(z.number()).length(4).describe("The bounding box of the image: [minLon, minLat, maxLon, maxLat]."),
-  dimensions: z.object({
-    width: z.number(),
-    height: z.number(),
-  }).describe("The pixel dimensions of the image."),
-});
-export type GeeDownloadUrlOutput = z.infer<typeof GeeDownloadUrlOutputSchema>;

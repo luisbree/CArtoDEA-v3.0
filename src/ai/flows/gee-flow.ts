@@ -9,19 +9,14 @@
 import { ai } from '@/ai/genkit';
 import ee from '@google/earthengine';
 import { promisify } from 'util';
-import type { GeeTileLayerInput, GeeTileLayerOutput, GeeDownloadUrlOutput } from './gee-types';
-import { GeeTileLayerInputSchema, GeeTileLayerOutputSchema, GeeDownloadUrlOutputSchema } from './gee-types';
+import type { GeeTileLayerInput, GeeTileLayerOutput } from './gee-types';
+import { GeeTileLayerInputSchema, GeeTileLayerOutputSchema } from './gee-types';
 import { z } from 'zod';
 
 // Main exported function for the frontend to call
 export async function getGeeTileLayer(input: GeeTileLayerInput): Promise<GeeTileLayerOutput> {
   return geeTileLayerFlow(input);
 }
-// New main exported function for downloads
-export async function getGeeDownloadUrl(input: GeeTileLayerInput): Promise<GeeDownloadUrlOutput> {
-    return geeDownloadUrlFlow(input);
-}
-
 
 // New exported function for authentication
 export async function authenticateWithGee(): Promise<{ success: boolean; message: string; }> {
@@ -134,61 +129,6 @@ const geeTileLayerFlow = ai.defineFlow(
     });
   }
 );
-
-
-const geeDownloadUrlFlow = ai.defineFlow(
-  {
-    name: 'geeDownloadUrlFlow',
-    inputSchema: GeeTileLayerInputSchema,
-    outputSchema: GeeDownloadUrlOutputSchema,
-  },
-  async (input) => {
-    try {
-        await initializeEe();
-
-        const { finalImage, visParams, geometry } = getImageForProcessing(input);
-
-        // First, create a visualized image with the correct palette/bands.
-        const visualizedImage = finalImage.visualize(visParams);
-        
-        // Then, get the download URL for that visualized image.
-        const getDownloadUrlPromise = promisify(visualizedImage.getDownloadURL.bind(visualizedImage));
-        const downloadUrl = await getDownloadUrlPromise({
-            name: 'gee_image_export',
-            region: geometry,
-            scale: 30, // Adjust scale for desired resolution
-            format: 'PNG',
-        });
-        
-        if (!downloadUrl) {
-            throw new Error("GEE no devolvió una URL de descarga.");
-        }
-        
-        // To get the dimensions, we need to get info on the original image, not the visualized one.
-        const getImageInfoPromise = promisify(finalImage.getInfo.bind(finalImage));
-        const imageInfo = await getImageInfoPromise();
-        
-        if (!imageInfo || !imageInfo.bands || !imageInfo.bands[0] || !imageInfo.bands[0].dimensions) {
-             throw new Error("No se pudo obtener la información de la imagen de GEE.");
-        }
-        const dimensions = imageInfo.bands[0].dimensions;
-        
-        // Bbox comes from the input Area of Interest
-        const bbox = [input.aoi.minLon, input.aoi.minLat, input.aoi.maxLon, input.aoi.maxLat];
-
-        return {
-            downloadUrl,
-            bbox,
-            dimensions: { width: dimensions[0], height: dimensions[1] }
-        };
-
-    } catch (error: any) {
-        console.error("Earth Engine Download Error:", error);
-        throw new Error(`Ocurrió un error al generar la URL de descarga de GEE: ${error.message || 'Error desconocido'}`);
-    }
-  }
-);
-
 
 
 // --- Earth Engine Initialization ---
