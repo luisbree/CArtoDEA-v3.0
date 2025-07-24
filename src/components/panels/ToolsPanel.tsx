@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState } from 'react';
@@ -17,6 +16,8 @@ import { Separator } from '@/components/ui/separator';
 import { Label } from '../ui/label';
 import { Input } from '../ui/input';
 import { Button } from '../ui/button';
+import type { MapLayer } from '@/lib/types';
+
 
 interface OSMCategory {
   id: string;
@@ -45,8 +46,9 @@ interface ToolsPanelProps {
   selectedOSMCategoryIds: string[];
   onSelectedOSMCategoriesChange: (ids: string[]) => void;
   isDownloading: boolean;
-  onDownloadOSMLayers: () => void;
+  onDownloadOSMLayers: (layers: MapLayer[], format: 'geojson' | 'kml' | 'shp') => void;
   style?: React.CSSProperties; // Added for position and zIndex
+  layers: MapLayer[]; // Added to pass to download options
 }
 
 const SectionHeader: React.FC<{ title: string; description?: string; icon: React.ElementType }> = ({ title, description, icon: Icon }) => (
@@ -66,6 +68,7 @@ const ToolsPanel: React.FC<ToolsPanelProps> = ({
   onSelectedOSMCategoriesChange,
   isDownloading, onDownloadOSMLayers,
   style, // Destructure style
+  layers,
 }) => {
 
   const [activeAccordionItem, setActiveAccordionItem] = React.useState<string | undefined>('openstreetmap-section');
@@ -127,7 +130,7 @@ const ToolsPanel: React.FC<ToolsPanelProps> = ({
                     isFetchingOSM={isFetchingOSM}
                     onFetchOSMDataTrigger={onFetchOSMDataTrigger}
                     isDownloading={isDownloading}
-                    onDownloadOSMLayers={onDownloadOSMLayers}
+                    onDownloadOSMLayers={(format) => onDownloadOSMLayers(layers, format)}
                 />
                 <Separator className="my-2 bg-white/10" />
                  <div className="space-y-3">

@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useCallback } from 'react';
@@ -196,35 +195,47 @@ export const useOSMData = ({ mapRef, drawingSourceRef, addLayer, osmCategoryConf
   }, [addLayer, osmCategoryConfigs, toast]);
 
   const fetchOSMData = useCallback(async () => {
+    let extent: Extent | undefined;
     const drawingSource = drawingSourceRef.current;
-    if (!drawingSource || drawingSource.getFeatures().length === 0) {
-      toast({ description: 'Por favor, dibuje un polígono en el mapa primero.' });
-      return;
-    }
     
-    const polygonFeature = drawingSource.getFeatures().find(f => f.getGeometry()?.getType() === 'Polygon');
-    if (!polygonFeature) {
-        toast({ description: "No se encontró un polígono. La obtención de datos OSM requiere un área poligonal." });
-        return;
+    // Prioritize drawn polygon
+    const polygonFeature = drawingSource?.getFeatures().find(f => f.getGeometry()?.getType() === 'Polygon');
+
+    if (polygonFeature) {
+        extent = polygonFeature.getGeometry()!.getExtent();
+        toast({ description: 'Usando polígono dibujado como límite para la búsqueda OSM.' });
+    } else if (mapRef.current) {
+        // Fallback to current view
+        extent = mapRef.current.getView().calculateExtent(mapRef.current.getSize());
+        toast({ description: 'Usando la vista actual como límite para la búsqueda OSM.' });
     }
-    const extent = polygonFeature.getGeometry()!.getExtent();
-    fetchAndProcessOSMData(extent, { type: 'categories', ids: selectedOSMCategoryIds });
-  }, [drawingSourceRef, toast, fetchAndProcessOSMData, selectedOSMCategoryIds]);
+
+    if (extent) {
+      fetchAndProcessOSMData(extent, { type: 'categories', ids: selectedOSMCategoryIds });
+    } else {
+      toast({ description: 'No se pudo determinar un área para la búsqueda. Dibuja un polígono o asegúrate de que el mapa esté visible.' });
+    }
+  }, [drawingSourceRef, mapRef, toast, fetchAndProcessOSMData, selectedOSMCategoryIds]);
 
   const fetchCustomOSMData = useCallback(async (key: string, value: string) => {
+    let extent: Extent | undefined;
     const drawingSource = drawingSourceRef.current;
-    if (!drawingSource || drawingSource.getFeatures().length === 0) {
-      toast({ description: 'Por favor, dibuje un polígono en el mapa primero.' });
-      return;
+    const polygonFeature = drawingSource?.getFeatures().find(f => f.getGeometry()?.getType() === 'Polygon');
+
+    if (polygonFeature) {
+        extent = polygonFeature.getGeometry()!.getExtent();
+        toast({ description: 'Usando polígono dibujado como límite para la búsqueda OSM personalizada.' });
+    } else if (mapRef.current) {
+        extent = mapRef.current.getView().calculateExtent(mapRef.current.getSize());
+        toast({ description: 'Usando la vista actual como límite para la búsqueda OSM personalizada.' });
     }
-    const polygonFeature = drawingSource.getFeatures().find(f => f.getGeometry()?.getType() === 'Polygon');
-    if (!polygonFeature) {
-        toast({ description: "No se encontró un polígono. La obtención de datos OSM requiere un área poligonal." });
-        return;
+
+    if (extent) {
+        fetchAndProcessOSMData(extent, { type: 'custom', key, value });
+    } else {
+        toast({ description: 'No se pudo determinar un área para la búsqueda. Dibuja un polígono o asegúrate de que el mapa esté visible.' });
     }
-    const extent = polygonFeature.getGeometry()!.getExtent();
-    fetchAndProcessOSMData(extent, { type: 'custom', key, value });
-  }, [drawingSourceRef, toast, fetchAndProcessOSMData]);
+  }, [drawingSourceRef, mapRef, toast, fetchAndProcessOSMData]);
 
 
   const fetchOSMForCurrentView = useCallback(async (categoryIds: string[]) => {

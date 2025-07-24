@@ -717,7 +717,8 @@ export default function GeoMapperClient() {
             selectedOSMCategoryIds={osmDataHook.selectedOSMCategoryIds}
             onSelectedOSMCategoriesChange={osmDataHook.setSelectedOSMCategoryIds}
             isDownloading={osmDataHook.isDownloading}
-            onDownloadOSMLayers={() => osmDataHook.handleDownloadOSMLayers(layerManagerHook.layers, 'shp')}
+            onDownloadOSMLayers={osmDataHook.handleDownloadOSMLayers}
+            layers={layerManagerHook.layers}
             style={{ top: `${panels.tools.position.y}px`, left: `${panels.tools.position.x}px`, zIndex: panels.tools.zIndex }}
           />
         )}
