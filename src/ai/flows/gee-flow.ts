@@ -111,29 +111,27 @@ const geeTileLayerFlow = ai.defineFlow(
     outputSchema: GeeTileLayerOutputSchema,
   },
   async (input) => {
-    try {
-      await initializeEe();
-      
-      const { finalImage, visParams } = getImageForProcessing(input);
+    await initializeEe();
+    const { finalImage, visParams } = getImageForProcessing(input);
 
-      const mapDetails = await promisify(finalImage.getMap.bind(finalImage))(visParams);
-      if (!mapDetails || !mapDetails.urlFormat) {
-          throw new Error('Respuesta inválida de getMap.');
-      }
-      
-      const tileUrl = mapDetails.urlFormat.replace('{x}', '{x}').replace('{y}', '{y}').replace('{z}', '{z}');
-      
-      return { tileUrl };
+    return new Promise((resolve, reject) => {
+        finalImage.getMap(visParams, (mapDetails: any, error: string) => {
+            if (error) {
+                console.error("Earth Engine getMap Error:", error);
+                 if (error.includes && error.includes('computation timed out')) {
+                    return reject(new Error('El procesamiento en Earth Engine tardó demasiado. Intente con un área más pequeña.'));
+                }
+                return reject(new Error(`Ocurrió un error al generar la capa de Earth Engine: ${error || 'Error desconocido'}`));
+            }
 
-    } catch (error: any) {
-        console.error("Earth Engine Error:", error);
-        if (error.message && error.message.includes('Service account not specified')) {
-            throw new Error('El servidor no está configurado para la autenticación con Earth Engine. Contacte al administrador.');
-        } else if (error.message && error.message.includes('computation timed out')) {
-            throw new Error('El procesamiento en Earth Engine tardó demasiado. Intente con un área más pequeña.');
-        }
-        throw new Error(`Ocurrió un error al generar la capa de Earth Engine: ${error.message || 'Error desconocido'}`);
-    }
+            if (!mapDetails || !mapDetails.urlFormat) {
+                return reject(new Error('Respuesta inválida de getMap.'));
+            }
+
+            const tileUrl = mapDetails.urlFormat.replace('{x}', '{x}').replace('{y}', '{y}').replace('{z}', '{z}');
+            resolve({ tileUrl });
+        });
+    });
   }
 );
 
