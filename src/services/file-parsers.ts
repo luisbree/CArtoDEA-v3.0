@@ -92,8 +92,11 @@ export const handleFileUpload = async ({
                 case 'tiff': {
                     const source = new GeoTIFF({
                         sources: [{
-                            blob: new Blob([content as ArrayBuffer])
-                        }]
+                            // Directly use the ArrayBuffer for efficiency
+                            url: content as ArrayBuffer
+                        }],
+                        // This option is crucial for performance and to avoid rendering issues with some data types
+                        normalize: false, 
                     });
                     onAddLayer(createGeoTiffLayer(source, nameForLayer));
                     toast({ description: `Capa GeoTIFF "${nameForLayer}" cargada.` });
