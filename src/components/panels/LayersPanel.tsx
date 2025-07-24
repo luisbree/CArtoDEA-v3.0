@@ -69,6 +69,7 @@ const LayersPanel: React.FC<LayersPanelProps> = ({
       showCloseButton={true}
       style={style} 
       zIndex={style?.zIndex as number | undefined} 
+      overflowY='visible'
     >
       <div className="space-y-3"> 
         
