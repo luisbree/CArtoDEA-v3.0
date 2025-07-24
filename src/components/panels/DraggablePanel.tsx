@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
@@ -71,7 +70,7 @@ const DraggablePanel: React.FC<DraggablePanelProps> = ({
   return (
     <div
       ref={panelRef}
-      className={`absolute bg-gray-800/80 text-white shadow-xl rounded-lg border border-gray-700/80 flex flex-col overflow-auto print:hidden ${className}`}
+      className={`absolute bg-gray-800/80 text-white shadow-xl rounded-lg border border-gray-700/80 flex flex-col print:hidden ${className}`}
       style={{
         ...style, 
         width: currentSize.width,
@@ -81,6 +80,7 @@ const DraggablePanel: React.FC<DraggablePanelProps> = ({
         maxWidth: maxSize.width ? `${maxSize.width}px` : '90vw',
         maxHeight: maxSize.height ? `${maxSize.height}px` : '80vh',
         resize: isCollapsed ? 'none' : 'both',
+        overflow: overflowY === 'visible' || overflowX === 'visible' ? 'visible' : 'auto',
       }}
       onMouseUpCapture={handleResizeStop}
     >
@@ -106,7 +106,10 @@ const DraggablePanel: React.FC<DraggablePanelProps> = ({
         </div>
       </CardHeader>
       {!isCollapsed && (
-        <CardContent className="p-3 flex-grow flex flex-col overflow-auto">
+         <CardContent 
+            className="p-3 flex-grow flex flex-col"
+            style={{ overflowX, overflowY }}
+        >
            {children}
         </CardContent>
       )}
