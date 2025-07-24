@@ -55,9 +55,11 @@ export const useGeoServerLayers = ({
         const errorData = await response.text();
         throw new Error(`Error al obtener capas de GeoServer: ${response.statusText}. Detalles: ${errorData}`);
       }
+
       const text = await response.text();
       const parser = new DOMParser();
       const xml = parser.parseFromString(text, "application/xml");
+      console.log(xml)
       const errorNode = xml.querySelector('ServiceException, ServiceExceptionReport');
       if (errorNode) {
           throw new Error(`Error en la respuesta de GeoServer: ${errorNode.textContent || 'Error desconocido'}`);
