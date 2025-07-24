@@ -62,6 +62,7 @@ export const useLayerManager = ({
   const { toast } = useToast();
   const [isFindingSentinelFootprints, setIsFindingSentinelFootprints] = useState(false);
   const [isFindingLandsatFootprints, setIsFindingLandsatFootprints] = useState(false);
+  const [isDrawingSourceEmptyOrNotPolygon, setIsDrawingSourceEmptyOrNotPolygon] = useState(true);
 
   useEffect(() => {
     // This effect ensures z-ordering is correct whenever the layers array changes.
@@ -71,6 +72,35 @@ export const useLayerManager = ({
       layer.olLayer.setZIndex(LAYER_START_Z_INDEX + (layerCount - 1 - index));
     });
   }, [layers]);
+
+  // Effect to check the state of the drawing source
+  useEffect(() => {
+    const source = drawingSourceRef.current;
+    if (!source) return;
+
+    const checkDrawingSource = () => {
+      const features = source.getFeatures();
+      if (features.length === 0) {
+        setIsDrawingSourceEmptyOrNotPolygon(true);
+        return;
+      }
+      const hasPolygon = features.some(f => f.getGeometry()?.getType() === 'Polygon');
+      setIsDrawingSourceEmptyOrNotPolygon(!hasPolygon);
+    };
+
+    source.on('addfeature', checkDrawingSource);
+    source.on('removefeature', checkDrawingSource);
+    source.on('clear', checkDrawingSource);
+
+    // Initial check
+    checkDrawingSource();
+
+    return () => {
+      source.un('addfeature', checkDrawingSource);
+      source.un('removefeature', checkDrawingSource);
+      source.un('clear', checkDrawingSource);
+    };
+  }, [drawingSourceRef]);
 
   const addLayer = useCallback((newLayer: MapLayer, bringToTop: boolean = true) => {
     if (!mapRef.current) return;
@@ -373,8 +403,6 @@ export const useLayerManager = ({
       toast({ description: `Capa renombrada a "${newName}"` });
     }, 0);
   }, [toast]);
-
-  const isDrawingSourceEmptyOrNotPolygon = true; // Placeholder, will be replaced with real logic
   
   const handleExtractByPolygon = useCallback((layerIdToExtract: string, onSuccess?: () => void) => {
     const targetLayer = layers.find(l => l.id === layerIdToExtract) as VectorMapLayer | undefined;
