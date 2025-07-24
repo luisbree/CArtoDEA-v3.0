@@ -90,12 +90,11 @@ export const handleFileUpload = async ({
             switch (fileExtension) {
                 case 'tif':
                 case 'tiff': {
+                    const blob = new Blob([content as ArrayBuffer]);
                     const source = new GeoTIFF({
                         sources: [{
-                            // Directly use the ArrayBuffer for efficiency
-                            url: content as ArrayBuffer
+                            blob: blob,
                         }],
-                        // This option is crucial for performance and to avoid rendering issues with some data types
                         normalize: false, 
                     });
                     onAddLayer(createGeoTiffLayer(source, nameForLayer));
