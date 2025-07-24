@@ -57,7 +57,7 @@ const FileUploadControl: React.FC<FileUploadControlProps> = ({
               type="file"
               multiple
               onChange={handleFilesSelected}
-              accept=".kml,.kmz,.geojson,.json,.zip,.shp,.dbf,.shx,.prj,.cpg"
+              accept=".kml,.kmz,.geojson,.json,.zip,.shp,.dbf,.shx,.prj,.cpg,.tif,.tiff"
               className="hidden"
               disabled={isLoading}
             />

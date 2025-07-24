@@ -9,6 +9,8 @@ import { nanoid } from 'nanoid';
 import type { MapLayer } from '@/lib/types';
 import type { useToast } from '@/hooks/use-toast';
 import type Feature from 'ol/Feature';
+import WebGLTileLayer from 'ol/layer/WebGLTile';
+import GeoTIFF from 'ol/source/GeoTIFF';
 
 interface FileUploadParams {
     selectedFile: File | null;
@@ -51,6 +53,23 @@ const createVectorLayer = (features: Feature[], layerName: string): MapLayer => 
     };
 };
 
+const createGeoTiffLayer = (source: GeoTIFF, layerName: string): MapLayer => {
+    const layerId = `${layerName}-${nanoid()}`;
+    const olLayer = new WebGLTileLayer({
+        source: source,
+        properties: { id: layerId, name: layerName, type: 'geotiff' },
+    });
+    return {
+        id: layerId,
+        name: layerName,
+        olLayer,
+        visible: true,
+        opacity: 1,
+        type: 'geotiff',
+    };
+};
+
+
 export const handleFileUpload = async ({
     selectedFile,
     selectedMultipleFiles,
@@ -69,6 +88,17 @@ export const handleFileUpload = async ({
 
         try {
             switch (fileExtension) {
+                case 'tif':
+                case 'tiff': {
+                    const source = new GeoTIFF({
+                        sources: [{
+                            blob: new Blob([content as ArrayBuffer])
+                        }]
+                    });
+                    onAddLayer(createGeoTiffLayer(source, nameForLayer));
+                    toast({ description: `Capa GeoTIFF "${nameForLayer}" cargada.` });
+                    return; // Exit after successful GeoTIFF processing
+                }
                 case 'geojson':
                 case 'json':
                     features = geojsonFormat.readFeatures(content as string);
@@ -204,7 +234,7 @@ export const handleFileUpload = async ({
         };
         
         const ext = getFileExtension(file.name);
-        if (['zip', 'kmz'].includes(ext)) {
+        if (['zip', 'kmz', 'tif', 'tiff'].includes(ext)) {
             reader.readAsArrayBuffer(file);
         } else {
             reader.readAsText(file);
