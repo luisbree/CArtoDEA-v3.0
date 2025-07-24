@@ -154,10 +154,11 @@ const geeDownloadUrlFlow = ai.defineFlow(
         const { finalImage, visParams, geometry } = getImageForProcessing(input);
 
         // Get the download URL for a PNG of the region.
+        // We visualize it first to apply palettes, then get the download URL for that visualization.
         const downloadUrl = await new Promise<string>((resolve, reject) => {
             finalImage.visualize(visParams).getDownloadURL({
                 name: 'gee_image_export',
-                bands: ['vis-red', 'vis-green', 'vis-blue'],
+                // No bands needed here as we are downloading the visualized image
                 region: geometry,
                 scale: 30, // Adjust scale for desired resolution
                 format: 'PNG',
