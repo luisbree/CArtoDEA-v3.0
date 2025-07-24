@@ -12,7 +12,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { BrainCircuit, Loader2, Image as ImageIcon, CheckCircle, AlertTriangle, Calendar as CalendarIcon, Download } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
-import { getGeeDownloadUrl } from '@/ai/flows/gee-flow';
+import { getGeeTileLayer, getGeeDownloadUrl } from '@/ai/flows/gee-flow'; // Import getGeeTileLayer
 import type { Map } from 'ol';
 import { transformExtent } from 'ol/proj';
 import type { GeeTileLayerInput } from '@/ai/flows/gee-types';
@@ -90,7 +90,7 @@ const GeeProcessingPanel: React.FC<GeeProcessingPanelProps> = ({
     setIsProcessing(true);
     
     try {
-        const result = await onAddGeeLayer(commonInput);
+        const result = await getGeeTileLayer(commonInput);
         
         if (result && result.tileUrl) {
             let layerName;
@@ -362,3 +362,4 @@ const GeeProcessingPanel: React.FC<GeeProcessingPanelProps> = ({
 };
 
 export default GeeProcessingPanel;
+ 
