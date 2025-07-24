@@ -9,14 +9,19 @@
 import { ai } from '@/ai/genkit';
 import ee from '@google/earthengine';
 import { promisify } from 'util';
-import type { GeeTileLayerInput, GeeTileLayerOutput } from './gee-types';
-import { GeeTileLayerInputSchema, GeeTileLayerOutputSchema } from './gee-types';
+import type { GeeTileLayerInput, GeeTileLayerOutput, GeeDownloadUrlOutput } from './gee-types';
+import { GeeTileLayerInputSchema, GeeTileLayerOutputSchema, GeeDownloadUrlOutputSchema } from './gee-types';
 import { z } from 'zod';
 
 // Main exported function for the frontend to call
 export async function getGeeTileLayer(input: GeeTileLayerInput): Promise<GeeTileLayerOutput> {
   return geeTileLayerFlow(input);
 }
+// New main exported function for downloads
+export async function getGeeDownloadUrl(input: GeeTileLayerInput): Promise<GeeDownloadUrlOutput> {
+    return geeDownloadUrlFlow(input);
+}
+
 
 // New exported function for authentication
 export async function authenticateWithGee(): Promise<{ success: boolean; message: string; }> {
@@ -32,6 +37,72 @@ export async function authenticateWithGee(): Promise<{ success: boolean; message
 }
 
 
+const getImageForProcessing = (input: GeeTileLayerInput) => {
+    const { aoi, bandCombination, startDate, endDate, minElevation, maxElevation } = input;
+    const geometry = ee.Geometry.Rectangle([aoi.minLon, aoi.minLat, aoi.maxLon, aoi.maxLat]);
+      
+    let finalImage;
+    let visParams: { bands?: string[]; min: number; max: number; gamma?: number, palette?: string[] };
+      
+    const DYNAMIC_WORLD_PALETTE = [
+        '#419BDF', '#397D49', '#88B053', '#7A87C6', '#E49635', 
+        '#DFC35A', '#C4281B', '#A59B8F', '#B39FE1',
+    ];
+
+    if (bandCombination !== 'JRC_WATER_OCCURRENCE' && bandCombination !== 'OPENLANDMAP_SOC' && bandCombination !== 'DYNAMIC_WORLD' && bandCombination !== 'NASADEM_ELEVATION') {
+        let s2ImageCollection = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
+          .filterBounds(geometry)
+          .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 20));
+        
+        if (startDate && endDate) {
+            s2ImageCollection = s2ImageCollection.filterDate(startDate, endDate);
+        } else {
+            s2ImageCollection = s2ImageCollection.filterDate(ee.Date(Date.now()).advance(-1, 'year'), ee.Date(Date.now()));
+        }
+
+        const s2Image = s2ImageCollection.median();
+        
+        switch (bandCombination) {
+          case 'SWIR_FALSE_COLOR':
+            finalImage = s2Image;
+            visParams = { bands: ['B12', 'B8A', 'B4'], min: 0, max: 3000 };
+            break;
+          case 'BSI':
+            finalImage = s2Image.expression('((B11 + B4) - (B8 + B2)) / ((B11 + B4) + (B8 + B2))', {
+              'B11': s2Image.select('B11'), 'B4': s2Image.select('B4'),
+              'B8': s2Image.select('B8'), 'B2': s2Image.select('B2')
+            }).rename('BSI');
+            visParams = { min: -1, max: 1, palette: ['#2ca25f', '#ffffbf', '#fdae61', '#d7191c'] };
+            break;
+          case 'NDVI':
+            finalImage = s2Image.normalizedDifference(['B8', 'B4']).rename('NDVI');
+            visParams = { min: -0.2, max: 1.0, palette: ['#a50026', '#d73027', '#f46d43', '#fdae61', '#fee08b', '#ffffbf', '#d9ef8b', '#a6d96a', '#66bd63', '#1a9850', '#006837'] };
+            break;
+          case 'URBAN_FALSE_COLOR':
+          default:
+            finalImage = s2Image;
+            visParams = { bands: ['B8', 'B4', 'B3'], min: 0, max: 3000 };
+            break;
+        }
+    } else if (bandCombination === 'DYNAMIC_WORLD') {
+        const dwCollection = ee.ImageCollection('GOOGLE/DYNAMICWORLD/V1').filterBounds(geometry).filterDate(startDate, endDate);
+        finalImage = ee.Image(dwCollection.mode()).select('label');
+        visParams = { min: 0, max: 8, palette: DYNAMIC_WORLD_PALETTE };
+    } else if (bandCombination === 'NASADEM_ELEVATION') {
+        finalImage = ee.Image('NASA/NASADEM_HGT/001').select('elevation');
+        visParams = { min: minElevation ?? 0, max: maxElevation ?? 4000, palette: ['006633', 'E5FFCC', '662A00', 'D8D8D8', 'FFFFFF'] };
+    } else if (bandCombination === 'OPENLANDMAP_SOC') {
+        finalImage = ee.Image("OpenLandMap/SOL/SOL_ORGANIC-CARBON_USDA-6A1C_M/v02").select('b0');
+        visParams = { min: 0, max: 100, palette: ['#FFFFE5', '#FFF7BC', '#FEE391', '#FEC44F', '#FE9929', '#EC7014', '#CC4C02', '#8C2D04'] };
+    } else { // JRC_WATER_OCCURRENCE
+        finalImage = ee.Image('JRC/GSW1_4/GlobalSurfaceWater').select('occurrence');
+        visParams = { min: 0, max: 100, palette: ['#FFFFFF', 'lightblue', 'blue'] };
+    }
+
+    return { finalImage, visParams, geometry };
+};
+
+
 // Define the Genkit flow
 const geeTileLayerFlow = ai.defineFlow(
   {
@@ -42,139 +113,13 @@ const geeTileLayerFlow = ai.defineFlow(
   async (input) => {
     try {
       await initializeEe();
-
-      const { aoi, bandCombination, startDate, endDate, zoom, minElevation, maxElevation } = input;
-      const geometry = ee.Geometry.Rectangle([aoi.minLon, aoi.minLat, aoi.maxLon, aoi.maxLat]);
       
-      let finalImage;
-      let visParams: { bands?: string[]; min: number; max: number; gamma?: number, palette?: string[] };
-      
-      const DYNAMIC_WORLD_PALETTE = [
-        '#419BDF', // water
-        '#397D49', // trees
-        '#88B053', // grass
-        '#7A87C6', // flooded_vegetation
-        '#E49635', // crops
-        '#DFC35A', // shrub_and_scrub
-        '#C4281B', // built
-        '#A59B8F', // bare
-        '#B39FE1', // snow_and_ice
-      ];
+      const { finalImage, visParams } = getImageForProcessing(input);
 
-      // Base Sentinel-2 Image Collection
-      if (bandCombination !== 'JRC_WATER_OCCURRENCE' && bandCombination !== 'OPENLANDMAP_SOC' && bandCombination !== 'DYNAMIC_WORLD' && bandCombination !== 'NASADEM_ELEVATION') {
-          let s2ImageCollection = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
-            .filterBounds(geometry)
-            .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 20));
-          
-          // Apply date filter if provided
-          if (startDate && endDate) {
-              s2ImageCollection = s2ImageCollection.filterDate(startDate, endDate);
-          } else {
-              // Default to the last year if no dates are provided
-              s2ImageCollection = s2ImageCollection.filterDate(ee.Date(Date.now()).advance(-1, 'year'), ee.Date(Date.now()));
-          }
-
-          // Using median() is a good way to get a composite with low cloud cover
-          const s2Image = s2ImageCollection.median();
-          
-          switch (bandCombination) {
-            case 'SWIR_FALSE_COLOR':
-              finalImage = s2Image;
-              visParams = {
-                bands: ['B12', 'B8A', 'B4'], // SWIR, NIR, Red
-                min: 0,
-                max: 3000,
-              };
-              break;
-
-            case 'BSI':
-              // Bare Soil Index formula: BSI = ((B11+B4) - (B8+B2)) / ((B11+B4) + (B8+B2))
-              finalImage = s2Image.expression(
-                '((B11 + B4) - (B8 + B2)) / ((B11 + B4) + (B8 + B2))',
-                {
-                  'B11': s2Image.select('B11'), // SWIR 1
-                  'B4': s2Image.select('B4'),   // Red
-                  'B8': s2Image.select('B8'),   // NIR
-                  'B2': s2Image.select('B2')    // Blue
-                }
-              ).rename('BSI');
-              visParams = {
-                min: -1, 
-                max: 1, 
-                palette: ['#2ca25f', '#ffffbf', '#fdae61', '#d7191c'] // Green -> Yellow -> Orange -> Red (vegetation to bare soil)
-              };
-              break;
-              
-            case 'NDVI':
-              // NDVI formula: NDVI = (NIR - Red) / (NIR + Red)
-              // For Sentinel-2, this is (B8 - B4) / (B8 + B4)
-              finalImage = s2Image.normalizedDifference(['B8', 'B4']).rename('NDVI');
-              visParams = {
-                min: -0.2, // Min NDVI for non-vegetated areas
-                max: 1.0,  // Max NDVI for dense vegetation
-                palette: [
-                  '#a50026', '#d73027', '#f46d43', '#fdae61', '#fee08b', // Reds to Yellows (low NDVI)
-                  '#ffffbf', // Yellow-Green
-                  '#d9ef8b', '#a6d96a', '#66bd63', '#1a9850', '#006837'  // Greens (high NDVI)
-                ]
-              };
-              break;
-            
-            case 'URBAN_FALSE_COLOR':
-            default:
-              finalImage = s2Image;
-              visParams = {
-                bands: ['B8', 'B4', 'B3'], // NIR, Red, Green -> False Color for Urban
-                min: 0,
-                max: 3000,
-              };
-              break;
-          }
-      } else if (bandCombination === 'DYNAMIC_WORLD') {
-          const dwCollection = ee.ImageCollection('GOOGLE/DYNAMICWORLD/V1')
-            .filterBounds(geometry)
-            .filterDate(startDate, endDate);
-            
-          finalImage = ee.Image(dwCollection.mode()).select('label');
-          visParams = {
-            min: 0,
-            max: 8,
-            palette: DYNAMIC_WORLD_PALETTE
-          };
-          
-      } else if (bandCombination === 'NASADEM_ELEVATION') {
-          finalImage = ee.Image('NASA/NASADEM_HGT/001').select('elevation');
-          visParams = {
-              min: minElevation ?? 0,
-              max: maxElevation ?? 4000,
-              palette: ['006633', 'E5FFCC', '662A00', 'D8D8D8', 'FFFFFF'] // Terrain palette
-          };
-
-      } else if (bandCombination === 'OPENLANDMAP_SOC') {
-          finalImage = ee.Image("OpenLandMap/SOL/SOL_ORGANIC-CARBON_USDA-6A1C_M/v02").select('b0');
-          visParams = {
-            min: 0,
-            max: 100, // The values are in dg/kg (g/kg * 10)
-            palette: ['#FFFFE5', '#FFF7BC', '#FEE391', '#FEC44F', '#FE9929', '#EC7014', '#CC4C02', '#8C2D04'] // Yellow to brown
-          };
-      } else { // JRC_WATER_OCCURRENCE
-          finalImage = ee.Image('JRC/GSW1_4/GlobalSurfaceWater').select('occurrence');
-          visParams = {
-            min: 0,
-            max: 100,
-            palette: ['#FFFFFF', 'lightblue', 'blue'] // White to light blue to dark blue
-          };
-      }
-      
       const mapDetails = await new Promise<any>((resolve, reject) => {
         finalImage.getMap(visParams, (map: any, error: string | null) => {
-            if (error) {
-                return reject(new Error(error));
-            }
-            if (!map || !map.urlFormat) {
-                return reject(new Error('Respuesta inválida de getMap.'));
-            }
+            if (error) return reject(new Error(error));
+            if (!map || !map.urlFormat) return reject(new Error('Respuesta inválida de getMap.'));
             resolve(map);
         });
       });
@@ -185,17 +130,68 @@ const geeTileLayerFlow = ai.defineFlow(
 
     } catch (error: any) {
         console.error("Earth Engine Error:", error);
-        // Provide more specific error messages if possible
         if (error.message && error.message.includes('Service account not specified')) {
             throw new Error('El servidor no está configurado para la autenticación con Earth Engine. Contacte al administrador.');
         } else if (error.message && error.message.includes('computation timed out')) {
             throw new Error('El procesamiento en Earth Engine tardó demasiado. Intente con un área más pequeña.');
         }
-        // Throw a more informative error message
         throw new Error(`Ocurrió un error al generar la capa de Earth Engine: ${error.message || 'Error desconocido'}`);
     }
   }
 );
+
+
+const geeDownloadUrlFlow = ai.defineFlow(
+  {
+    name: 'geeDownloadUrlFlow',
+    inputSchema: GeeTileLayerInputSchema,
+    outputSchema: GeeDownloadUrlOutputSchema,
+  },
+  async (input) => {
+    try {
+        await initializeEe();
+
+        const { finalImage, visParams, geometry } = getImageForProcessing(input);
+
+        // Get the download URL for a PNG of the region.
+        const downloadUrl = await new Promise<string>((resolve, reject) => {
+            finalImage.visualize(visParams).getDownloadURL({
+                name: 'gee_image_export',
+                bands: ['vis-red', 'vis-green', 'vis-blue'],
+                region: geometry,
+                scale: 30, // Adjust scale for desired resolution
+                format: 'PNG',
+            }, (url, error) => {
+                if (error) return reject(new Error(error));
+                if (!url) return reject(new Error("GEE no devolvió una URL de descarga."));
+                resolve(url);
+            });
+        });
+        
+        const imageInfo = await promisify(finalImage.getInfo.bind(finalImage))();
+        const crsTransform = imageInfo.bands[0].crs_transform;
+        const dimensions = imageInfo.bands[0].dimensions;
+        
+        const bbox = [
+            crsTransform[2],
+            crsTransform[5] + dimensions[1] * crsTransform[4] + dimensions[0] * crsTransform[3],
+            crsTransform[2] + dimensions[1] * crsTransform[1] + dimensions[0] * crsTransform[0],
+            crsTransform[5],
+        ];
+
+        return {
+            downloadUrl,
+            bbox,
+            dimensions: { width: dimensions[0], height: dimensions[1] }
+        };
+
+    } catch (error: any) {
+        console.error("Earth Engine Download Error:", error);
+        throw new Error(`Ocurrió un error al generar la URL de descarga de GEE: ${error.message || 'Error desconocido'}`);
+    }
+  }
+);
+
 
 
 // --- Earth Engine Initialization ---
@@ -204,16 +200,10 @@ let eeInitialized: Promise<void> | null = null;
 async function authenticateAndInitialize() {
   const authType = process.env.EE_AUTH_TYPE;
 
-  const authenticate = promisify(
-    authType === 'SERVICE_ACCOUNT'
-      ? (key: any, cb: (err?: Error) => void) => ee.data.authenticateViaPrivateKey(key, cb)
-      : (authCode: null, cb: (err?: Error) => void) => ee.data.authenticateViaOauth(process.env.EE_CLIENT_ID, cb)
-  );
+  const runInitialization = (authCb: (err?: Error | null) => void) => {
+    ee.initialize(null, null, authCb, null);
+  };
 
-  const initialize = promisify(
-    (cb: (err?: Error) => void) => ee.initialize(null, null, cb)
-  );
-  
   try {
     if (authType === 'SERVICE_ACCOUNT') {
       const serviceAccountKey = process.env.EE_SERVICE_ACCOUNT_KEY;
@@ -221,18 +211,19 @@ async function authenticateAndInitialize() {
         throw new Error('La variable de entorno EE_SERVICE_ACCOUNT_KEY no está configurada para la autenticación GEE.');
       }
       const keyObject = JSON.parse(serviceAccountKey);
-      await authenticate(keyObject);
+      await promisify(ee.data.authenticateViaPrivateKey)(keyObject);
     } else {
-      await authenticate(null);
+       await promisify(ee.data.authenticateViaOauth)(process.env.EE_CLIENT_ID);
     }
 
-    await initialize();
+    await promisify(runInitialization)();
     console.log('Earth Engine initialized successfully.');
 
   } catch (e: any) {
     if (e instanceof SyntaxError) {
         throw new Error('No se pudo parsear el JSON de la clave de la cuenta de servicio (EE_SERVICE_ACCOUNT_KEY). Verifique que sea una cadena JSON válida de una sola línea.');
     }
+    // Add more specific error handling if needed
     throw new Error(`Fallo en la autenticación/inicialización con Earth Engine: ${e.message}`);
   }
 }

@@ -10,14 +10,15 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { BrainCircuit, Loader2, Image as ImageIcon, CheckCircle, AlertTriangle, Calendar as CalendarIcon } from 'lucide-react';
+import { BrainCircuit, Loader2, Image as ImageIcon, CheckCircle, AlertTriangle, Calendar as CalendarIcon, Download } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
-import { getGeeTileLayer } from '@/ai/flows/gee-flow';
+import { getGeeDownloadUrl } from '@/ai/flows/gee-flow';
 import type { Map } from 'ol';
 import { transformExtent } from 'ol/proj';
 import type { GeeTileLayerInput } from '@/ai/flows/gee-types';
 import { cn } from '@/lib/utils';
 import { Slider } from '@/components/ui/slider';
+import { saveAs } from 'file-saver';
 
 
 interface GeeProcessingPanelProps {
@@ -47,7 +48,7 @@ const GeeProcessingPanel: React.FC<GeeProcessingPanelProps> = ({
   isAuthenticated,
   style,
 }) => {
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [selectedCombination, setSelectedCombination] = useState<BandCombination>('URBAN_FALSE_COLOR');
   const [date, setDate] = useState<DateRange | undefined>({
     from: addDays(new Date(), -365),
@@ -56,68 +57,53 @@ const GeeProcessingPanel: React.FC<GeeProcessingPanelProps> = ({
   const [elevationRange, setElevationRange] = useState<[number, number]>([0, 150]);
   const { toast } = useToast();
 
+  const getCommonInput = (): GeeTileLayerInput | null => {
+      if (!mapRef.current) {
+          toast({ description: "El mapa no está listo.", variant: "destructive" });
+          return null;
+      }
+      if (!isAuthenticated) {
+          toast({ description: "Debe autenticarse con GEE primero.", variant: "destructive" });
+          return null;
+      }
+
+      const view = mapRef.current.getView();
+      const extent = view.calculateExtent(mapRef.current.getSize()!);
+      const zoom = view.getZoom() || 2;
+      const extent4326 = transformExtent(extent, view.getProjection(), 'EPSG:4326');
+
+      return {
+          aoi: { minLon: extent4326[0], minLat: extent4326[1], maxLon: extent4326[2], maxLat: extent4326[3] },
+          zoom: zoom,
+          bandCombination: selectedCombination,
+          startDate: date?.from ? format(date.from, 'yyyy-MM-dd') : undefined,
+          endDate: date?.to ? format(date.to, 'yyyy-MM-dd') : undefined,
+          minElevation: selectedCombination === 'NASADEM_ELEVATION' ? elevationRange[0] : undefined,
+          maxElevation: selectedCombination === 'NASADEM_ELEVATION' ? elevationRange[1] : undefined,
+      };
+  }
+
   const handleGenerateLayer = async () => {
-    if (!mapRef.current) {
-        toast({ description: "El mapa no está listo.", variant: "destructive" });
-        return;
-    }
-    if (!isAuthenticated) {
-        toast({ description: "Debe autenticarse con GEE primero.", variant: "destructive" });
-        return;
-    }
-    setIsGenerating(true);
+    const commonInput = getCommonInput();
+    if (!commonInput) return;
+
+    setIsProcessing(true);
     
     try {
-        const view = mapRef.current.getView();
-        const extent = view.calculateExtent(mapRef.current.getSize()!);
-        const zoom = view.getZoom() || 2;
-        
-        const extent4326 = transformExtent(extent, view.getProjection(), 'EPSG:4326');
-
-        const result = await getGeeTileLayer({
-            aoi: {
-                minLon: extent4326[0],
-                minLat: extent4326[1],
-                maxLon: extent4326[2],
-                maxLat: extent4326[3],
-            },
-            zoom: zoom,
-            bandCombination: selectedCombination,
-            startDate: date?.from ? format(date.from, 'yyyy-MM-dd') : undefined,
-            endDate: date?.to ? format(date.to, 'yyyy-MM-dd') : undefined,
-            minElevation: selectedCombination === 'NASADEM_ELEVATION' ? elevationRange[0] : undefined,
-            maxElevation: selectedCombination === 'NASADEM_ELEVATION' ? elevationRange[1] : undefined,
-        });
+        const result = await onAddGeeLayer(commonInput);
         
         if (result && result.tileUrl) {
             let layerName;
             switch(selectedCombination) {
-                case 'URBAN_FALSE_COLOR':
-                    layerName = 'Sentinel-2 (Urbano) GEE';
-                    break;
-                case 'SWIR_FALSE_COLOR':
-                    layerName = 'Sentinel-2 (SWIR) GEE';
-                    break;
-                case 'BSI':
-                    layerName = 'Índice de Suelo Desnudo (BSI) GEE';
-                    break;
-                case 'NDVI':
-                    layerName = 'Índice de Vegetación (NDVI) GEE';
-                    break;
-                case 'JRC_WATER_OCCURRENCE':
-                    layerName = 'Agua Superficial (JRC)';
-                    break;
-                case 'OPENLANDMAP_SOC':
-                    layerName = 'Carbono Org. del Suelo (OpenLandMap)';
-                    break;
-                case 'DYNAMIC_WORLD':
-                    layerName = 'Dynamic World Land Cover';
-                    break;
-                case 'NASADEM_ELEVATION':
-                    layerName = `NASADEM Elevación (${elevationRange[0]}-${elevationRange[1]}m)`;
-                    break;
-                default:
-                    layerName = 'Capa GEE';
+                case 'URBAN_FALSE_COLOR': layerName = 'Sentinel-2 (Urbano) GEE'; break;
+                case 'SWIR_FALSE_COLOR': layerName = 'Sentinel-2 (SWIR) GEE'; break;
+                case 'BSI': layerName = 'Índice de Suelo Desnudo (BSI) GEE'; break;
+                case 'NDVI': layerName = 'Índice de Vegetación (NDVI) GEE'; break;
+                case 'JRC_WATER_OCCURRENCE': layerName = 'Agua Superficial (JRC)'; break;
+                case 'OPENLANDMAP_SOC': layerName = 'Carbono Org. del Suelo (OpenLandMap)'; break;
+                case 'DYNAMIC_WORLD': layerName = 'Dynamic World Land Cover'; break;
+                case 'NASADEM_ELEVATION': layerName = `NASADEM Elevación (${elevationRange[0]}-${elevationRange[1]}m)`; break;
+                default: layerName = 'Capa GEE';
             }
             onAddGeeLayer(result.tileUrl, layerName);
         } else {
@@ -126,15 +112,61 @@ const GeeProcessingPanel: React.FC<GeeProcessingPanelProps> = ({
 
     } catch (error: any) {
       console.error("Error generating GEE layer:", error);
-      toast({
-        title: "Error de GEE",
-        description: error.message || "No se pudo generar la capa de Earth Engine.",
-        variant: "destructive",
-      });
+      toast({ title: "Error de GEE", description: error.message || "No se pudo generar la capa de Earth Engine.", variant: "destructive" });
     } finally {
-      setIsGenerating(false);
+      setIsProcessing(false);
     }
   };
+  
+  const handleDownloadImage = async () => {
+    const commonInput = getCommonInput();
+    if (!commonInput) return;
+
+    setIsProcessing(true);
+    toast({ description: "Preparando descarga desde GEE... Esto puede tardar." });
+    
+    try {
+        const result = await getGeeDownloadUrl(commonInput);
+        const { downloadUrl, bbox, dimensions } = result;
+
+        // Fetch the image blob
+        const imageResponse = await fetch(downloadUrl);
+        if (!imageResponse.ok) {
+            throw new Error(`Fallo al descargar la imagen de GEE (status: ${imageResponse.status})`);
+        }
+        const imageBlob = await imageResponse.blob();
+        
+        // Create world file content (.pgw for PNG)
+        const [minLon, minLat, maxLon, maxLat] = bbox;
+        const pixelWidth = (maxLon - minLon) / dimensions.width;
+        const pixelHeight = (maxLat - minLat) / dimensions.height;
+        
+        const worldFileContent = [
+            pixelWidth,      // Line 1: A: x-component of the pixel width (x-scale)
+            0,               // Line 2: D: y-component of the pixel width (y-skew)
+            0,               // Line 3: B: x-component of the pixel height (x-skew)
+            -pixelHeight,    // Line 4: E: y-component of the pixel height (y-scale), typically negative
+            minLon + pixelWidth / 2, // Line 5: C: x-coordinate of the center of the upper-left pixel
+            maxLat - pixelHeight / 2, // Line 6: F: y-coordinate of the center of the upper-left pixel
+        ].join('\n');
+
+        const worldFileBlob = new Blob([worldFileContent], { type: 'text/plain;charset=utf-8' });
+
+        // Save files
+        const baseName = `gee_export_${selectedCombination.toLowerCase()}`;
+        saveAs(imageBlob, `${baseName}.png`);
+        saveAs(worldFileBlob, `${baseName}.pgw`);
+        
+        toast({ title: "Descarga Completa", description: "Se han guardado la imagen PNG y el archivo de mundo PGW." });
+
+    } catch (error: any) {
+        console.error("Error downloading GEE image:", error);
+        toast({ title: "Error de Descarga GEE", description: error.message || "No se pudo descargar la imagen georreferenciada.", variant: "destructive" });
+    } finally {
+        setIsProcessing(false);
+    }
+  };
+
 
   const getAuthStatusContent = () => {
     if (isAuthenticating) {
@@ -297,18 +329,31 @@ const GeeProcessingPanel: React.FC<GeeProcessingPanelProps> = ({
           </Popover>
         </div>
         
-        <div className="space-y-2 pt-2 border-t border-white/10">
+        <div className="flex items-center gap-2 pt-2 border-t border-white/10">
           <Button 
              onClick={handleGenerateLayer} 
-             disabled={isGenerating || isAuthenticating || !isAuthenticated || (isDateSelectionDisabled ? false : (!date?.from || !date?.to))} 
+             disabled={isProcessing || isAuthenticating || !isAuthenticated || (isDateSelectionDisabled ? false : (!date?.from || !date?.to))} 
              className="w-full"
            >
-            {isGenerating ? (
+            {isProcessing ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (
               <ImageIcon className="mr-2 h-4 w-4" />
             )}
-            {isGenerating ? "Procesando..." : "Generar y Añadir Capa"}
+            Añadir como Capa
+          </Button>
+           <Button 
+             onClick={handleDownloadImage} 
+             variant="secondary"
+             disabled={isProcessing || isAuthenticating || !isAuthenticated || (isDateSelectionDisabled ? false : (!date?.from || !date?.to))} 
+             className="w-full"
+           >
+            {isProcessing ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="mr-2 h-4 w-4" />
+            )}
+            Descargar PNG + PGW
           </Button>
         </div>
       </div>
