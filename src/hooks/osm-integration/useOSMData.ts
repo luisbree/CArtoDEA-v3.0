@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useCallback } from 'react';
@@ -59,7 +60,7 @@ export const useOSMData = ({ mapRef, drawingSourceRef, addLayer, osmCategoryConf
         });
         
         const recursivePart = "(._;>;);";
-        const outPart = "out body; geom;";
+        const outPart = "out geom;";
 
         if (query.type === 'categories') {
             if (query.ids.length === 0) {
