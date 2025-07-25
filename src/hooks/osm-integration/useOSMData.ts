@@ -58,6 +58,9 @@ export const useOSMData = ({ mapRef, drawingSourceRef, addLayer, osmCategoryConf
             })
         });
         
+        const recursivePart = "(._;>;);";
+        const outPart = "out body; geom;";
+
         if (query.type === 'categories') {
             if (query.ids.length === 0) {
               toast({ description: 'Por favor, seleccione al menos una categoría de OSM.' });
@@ -66,7 +69,7 @@ export const useOSMData = ({ mapRef, drawingSourceRef, addLayer, osmCategoryConf
             }
             const selectedConfigs = osmCategoryConfigs.filter(c => query.ids.includes(c.id));
             const queryFragments = selectedConfigs.map(c => c.overpassQueryFragment(bboxStr)).join('');
-            overpassQuery = `[out:json][timeout:60];(${queryFragments});out geom;`;
+            overpassQuery = `[out:json][timeout:60];(${queryFragments});${recursivePart}${outPart}`;
         } else { // custom query
             const filterFragments = query.filters.map(filter => {
                 const values = filter.value.split(',').map(v => v.trim()).filter(v => v);
@@ -92,11 +95,11 @@ export const useOSMData = ({ mapRef, drawingSourceRef, addLayer, osmCategoryConf
                         return `["${filter.key}"]`;
                     }
                 }).join('');
-                overpassQuery = `[out:json][timeout:60];nwr${combinedSelectors}${bboxStr};out geom;`;
+                overpassQuery = `[out:json][timeout:60];nwr${combinedSelectors}${bboxStr};${recursivePart}${outPart}`;
                 layerName = `OSM: ${query.filters.map(f => f.key).join(' Y ')}`;
             } else { // OR
                 const queryBody = filterFragments.join(';');
-                overpassQuery = `[out:json][timeout:60];(${queryBody});out geom;`;
+                overpassQuery = `[out:json][timeout:60];(${queryBody});${recursivePart}${outPart}`;
                 layerName = `OSM: ${query.filters.map(f => f.key).join(' O ')}`;
             }
         }
@@ -132,7 +135,17 @@ export const useOSMData = ({ mapRef, drawingSourceRef, addLayer, osmCategoryConf
                         geometry = { type: 'LineString', coordinates: [coordinates] };
                     }
                 }
+            } else if (element.type === 'relation' && element.members) {
+                 // For relations, we rely on the `out geom;` from Overpass to provide a representative geometry
+                 // if available (like the center of the bounding box).
+                 if (element.center) {
+                    geometry = {
+                        type: 'Point',
+                        coordinates: [element.center.lon, element.center.lat]
+                    };
+                 }
             }
+
             if (!geometry) return null;
 
             return {
