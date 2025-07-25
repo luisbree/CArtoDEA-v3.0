@@ -25,13 +25,18 @@ interface UseOSMDataProps {
   osmCategoryConfigs: OSMCategoryConfig[];
 }
 
+interface CustomFilter {
+    key: string;
+    value: string;
+}
+
 export const useOSMData = ({ mapRef, drawingSourceRef, addLayer, osmCategoryConfigs }: UseOSMDataProps) => {
   const { toast } = useToast();
   const [isFetchingOSM, setIsFetchingOSM] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [selectedOSMCategoryIds, setSelectedOSMCategoryIds] = useState<string[]>(['watercourses', 'water_bodies']);
 
-  const fetchAndProcessOSMData = useCallback(async (extent: Extent, query: { type: 'categories', ids: string[] } | { type: 'custom', key: string, value: string }) => {
+  const fetchAndProcessOSMData = useCallback(async (extent: Extent, query: { type: 'categories', ids: string[] } | { type: 'custom', filters: CustomFilter[], operator: 'AND' | 'OR' }) => {
     setIsFetchingOSM(true);
     toast({ description: 'Obteniendo datos de OpenStreetMap...' });
 
@@ -39,7 +44,7 @@ export const useOSMData = ({ mapRef, drawingSourceRef, addLayer, osmCategoryConf
         const mapProjection = getProjection('EPSG:3857');
         const dataProjection = getProjection('EPSG:4326');
         const transformedExtent = transformExtent(extent, mapProjection!, dataProjection!);
-        const bboxStr = `${transformedExtent[1]},${transformedExtent[0]},${transformedExtent[3]},${transformedExtent[2]}`;
+        const bboxStr = `(${transformedExtent[1]},${transformedExtent[0]},${transformedExtent[3]},${transformedExtent[2]})`;
         
         let overpassQuery = '';
         let layerName = 'OSM Personalizado';
@@ -63,20 +68,36 @@ export const useOSMData = ({ mapRef, drawingSourceRef, addLayer, osmCategoryConf
             const queryFragments = selectedConfigs.map(c => c.overpassQueryFragment(bboxStr)).join('');
             overpassQuery = `[out:json][timeout:60];(${queryFragments});out geom;`;
         } else { // custom query
-             const values = query.value.split(',').map(v => v.trim()).filter(v => v);
-            if (values.length > 1) {
-                // Multiple values: create a regex to OR them
-                const regexValue = `^(${values.join('|')})$`;
-                overpassQuery = `[out:json][timeout:60];(nwr["${query.key}"~"${regexValue}"](${bboxStr}););out geom;`;
-                layerName = `OSM: ${query.key}`;
-            } else if (values.length === 1 && values[0]) {
-                // Single value
-                overpassQuery = `[out:json][timeout:60];(nwr["${query.key}"="${values[0]}"](${bboxStr}););out geom;`;
-                layerName = `OSM: ${query.key}=${values[0]}`;
-            } else {
-                // No value, search for key existence
-                overpassQuery = `[out:json][timeout:60];(nwr["${query.key}"](${bboxStr}););out geom;`;
-                layerName = `OSM: ${query.key}`;
+            const filterFragments = query.filters.map(filter => {
+                const values = filter.value.split(',').map(v => v.trim()).filter(v => v);
+                if (values.length > 1) {
+                    const regexValue = `^(${values.join('|')})$`;
+                    return `nwr["${filter.key}"~"${regexValue}"]${bboxStr}`;
+                } else if (values.length === 1 && values[0]) {
+                    return `nwr["${filter.key}"="${values[0]}"]${bboxStr}`;
+                } else {
+                    return `nwr["${filter.key}"]${bboxStr}`;
+                }
+            });
+
+            if (query.operator === 'AND') {
+                // For AND, each filter applies to the same element `nwr`
+                const combinedSelectors = query.filters.map(filter => {
+                    const values = filter.value.split(',').map(v => v.trim()).filter(v => v);
+                    if (values.length > 1) {
+                        return `["${filter.key}"~"^(${values.join('|')})$"]`;
+                    } else if (values.length === 1 && values[0]) {
+                        return `["${filter.key}"="${values[0]}"]`;
+                    } else {
+                        return `["${filter.key}"]`;
+                    }
+                }).join('');
+                overpassQuery = `[out:json][timeout:60];nwr${combinedSelectors}${bboxStr};out geom;`;
+                layerName = `OSM: ${query.filters.map(f => f.key).join(' Y ')}`;
+            } else { // OR
+                const queryBody = filterFragments.join(';');
+                overpassQuery = `[out:json][timeout:60];(${queryBody});out geom;`;
+                layerName = `OSM: ${query.filters.map(f => f.key).join(' O ')}`;
             }
         }
         
@@ -116,7 +137,7 @@ export const useOSMData = ({ mapRef, drawingSourceRef, addLayer, osmCategoryConf
 
             return {
                 type: 'Feature',
-                id: `${element.type}/${element.id}`, // Ensure a unique ID for features
+                id: `${element.type}/${element.id}`,
                 properties,
                 geometry
             };
@@ -198,14 +219,12 @@ export const useOSMData = ({ mapRef, drawingSourceRef, addLayer, osmCategoryConf
     let extent: Extent | undefined;
     const drawingSource = drawingSourceRef.current;
     
-    // Prioritize drawn polygon
     const polygonFeature = drawingSource?.getFeatures().find(f => f.getGeometry()?.getType() === 'Polygon');
 
     if (polygonFeature) {
         extent = polygonFeature.getGeometry()!.getExtent();
         toast({ description: 'Usando polígono dibujado como límite para la búsqueda OSM.' });
     } else if (mapRef.current) {
-        // Fallback to current view
         extent = mapRef.current.getView().calculateExtent(mapRef.current.getSize());
         toast({ description: 'Usando la vista actual como límite para la búsqueda OSM.' });
     }
@@ -217,7 +236,7 @@ export const useOSMData = ({ mapRef, drawingSourceRef, addLayer, osmCategoryConf
     }
   }, [drawingSourceRef, mapRef, toast, fetchAndProcessOSMData, selectedOSMCategoryIds]);
 
-  const fetchCustomOSMData = useCallback(async (key: string, value: string) => {
+  const fetchCustomOSMData = useCallback(async (filters: CustomFilter[], logicalOperator: 'AND' | 'OR') => {
     let extent: Extent | undefined;
     const drawingSource = drawingSourceRef.current;
     const polygonFeature = drawingSource?.getFeatures().find(f => f.getGeometry()?.getType() === 'Polygon');
@@ -231,7 +250,7 @@ export const useOSMData = ({ mapRef, drawingSourceRef, addLayer, osmCategoryConf
     }
 
     if (extent) {
-        fetchAndProcessOSMData(extent, { type: 'custom', key, value });
+        fetchAndProcessOSMData(extent, { type: 'custom', filters: filters, operator: logicalOperator });
     } else {
         toast({ description: 'No se pudo determinar un área para la búsqueda. Dibuja un polígono o asegúrate de que el mapa esté visible.' });
     }
