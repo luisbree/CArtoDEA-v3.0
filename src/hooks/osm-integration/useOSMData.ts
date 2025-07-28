@@ -16,6 +16,7 @@ import shp from 'shpjs';
 import JSZip from 'jszip';
 import type Feature from 'ol/Feature';
 import type { Geometry } from 'ol/geom';
+import osmtogeojson from 'osmtogeojson';
 
 
 interface UseOSMDataProps {
@@ -79,10 +80,8 @@ export const useOSMData = ({ mapRef, drawingSourceRef, addLayer, osmCategoryConf
                 throw new Error(`Overpass API error: ${response.status} ${errorText}`);
             }
             const osmData = await response.json();
-            // The library osmtogeojson seems to be the one causing issues.
-            // Overpass can return GeoJSON directly if asked. Let's try that.
-            // For now, let's assume the response is standard OSM JSON.
-            const features = geojsonFormat.readFeatures(osmData);
+            const geojsonData = osmtogeojson(osmData);
+            const features = geojsonFormat.readFeatures(geojsonData);
             features.forEach(f => f.setId(nanoid()));
             return features;
         } catch (error) {
