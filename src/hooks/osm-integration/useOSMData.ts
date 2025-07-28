@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useCallback } from 'react';
@@ -81,9 +82,7 @@ export const useOSMData = ({ mapRef, drawingSourceRef, addLayer, osmCategoryConf
                 (
                   ${queryFragment}
                 );
-                out body;
-                >;
-                out skel qt;`;
+                out geom;`;
             
             const features = await executeQuery(overpassQuery);
             
