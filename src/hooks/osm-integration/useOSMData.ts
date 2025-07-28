@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useCallback } from 'react';
@@ -16,7 +15,6 @@ import shp from 'shpjs';
 import JSZip from 'jszip';
 import type Feature from 'ol/Feature';
 import type { Geometry } from 'ol/geom';
-import { Style, Fill, Stroke, Circle as CircleStyle } from 'ol/style';
 import osmtogeojson from 'osmtogeojson';
 
 
@@ -27,19 +25,20 @@ interface UseOSMDataProps {
   osmCategoryConfigs: OSMCategoryConfig[];
 }
 
-interface CustomFilter {
-    key: string;
-    value: string;
-}
-
 export const useOSMData = ({ mapRef, drawingSourceRef, addLayer, osmCategoryConfigs }: UseOSMDataProps) => {
   const { toast } = useToast();
   const [isFetchingOSM, setIsFetchingOSM] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [selectedOSMCategoryIds, setSelectedOSMCategoryIds] = useState<string[]>(['watercourses', 'water_bodies']);
 
-  const fetchAndProcessOSMData = useCallback(async (extent: Extent, query: { type: 'categories', ids: string[] } | { type: 'custom', filters: CustomFilter[], operator: 'AND' | 'OR' }) => {
+  const fetchAndProcessOSMData = useCallback(async (extent: Extent, categoryIds: string[]) => {
+    if (categoryIds.length === 0) {
+        toast({ description: 'Por favor, seleccione al menos una categoría de OSM.' });
+        return;
+    }
+    
     setIsFetchingOSM(true);
+    toast({ description: `Buscando ${categoryIds.length} categoría(s) de OSM...` });
 
     const mapProjection = getProjection('EPSG:3857');
     const dataProjection = getProjection('EPSG:4326');
@@ -62,13 +61,10 @@ export const useOSMData = ({ mapRef, drawingSourceRef, addLayer, osmCategoryConf
                 throw new Error(`Overpass API error: ${response.status} ${errorText}`);
             }
             const osmData = await response.json();
-            
             const geojsonData = osmtogeojson(osmData);
-
             const features = geojsonFormat.readFeatures(geojsonData);
             features.forEach(f => f.setId(nanoid()));
             return features;
-
         } catch (error) {
             console.error("Overpass query failed:", error);
             throw error;
@@ -76,87 +72,27 @@ export const useOSMData = ({ mapRef, drawingSourceRef, addLayer, osmCategoryConf
     };
     
     try {
-        if (query.type === 'categories') {
-            if (query.ids.length === 0) {
-              toast({ description: 'Por favor, seleccione al menos una categoría de OSM.' });
-              setIsFetchingOSM(false);
-              return;
-            }
-            toast({ description: `Buscando ${query.ids.length} categoría(s) de OSM...` });
+        for (const categoryId of categoryIds) {
+            const config = osmCategoryConfigs.find(c => c.id === categoryId);
+            if (!config) continue;
 
-            for (const categoryId of query.ids) {
-                const config = osmCategoryConfigs.find(c => c.id === categoryId);
-                if (!config) continue;
-
-                const queryFragment = config.overpassQueryFragment(bboxStr);
-                const overpassQuery = `[out:json][timeout:60];(${queryFragment});${recursivePart}${outPart}`;
-                
-                const features = await executeQuery(overpassQuery);
-                
-                if (features.length > 0) {
-                    const vectorSource = new VectorSource({ features });
-                    const catLayerName = `${config.name} (${features.length})`;
-                    const newLayer = new VectorLayer({
-                        source: vectorSource,
-                        style: config.style,
-                        properties: { id: `osm-${config.id}-${nanoid()}`, name: catLayerName, type: 'osm' }
-                    });
-                    addLayer({ id: newLayer.get('id'), name: catLayerName, olLayer: newLayer, visible: true, opacity: 1, type: 'osm' });
-                    toast({ description: `Capa "${catLayerName}" añadida.` });
-                } else {
-                    toast({ description: `No se encontraron entidades para "${config.name}".` });
-                }
-            }
-        } else { // Custom query
-            toast({ description: 'Realizando búsqueda personalizada en OSM...' });
-            const validFilters = query.filters.filter(f => f.key.trim() !== '');
-            if (validFilters.length === 0) {
-                toast({ description: 'Por favor, ingrese al menos un filtro válido.' });
-                setIsFetchingOSM(false);
-                return;
-            }
+            const queryFragment = config.overpassQueryFragment(bboxStr);
+            const overpassQuery = `[out:json][timeout:60];(${queryFragment});${recursivePart}${outPart}`;
             
-            const buildSelector = (filter: CustomFilter) => {
-                const values = filter.value.split(',').map(v => v.trim()).filter(v => v);
-                const key = filter.key.trim();
-                if (values.length > 1) {
-                    const regexValue = `^(${values.join('|')})$`;
-                    return `nwr["${key}"~"${regexValue}"](${bboxStr})`;
-                } else if (values.length === 1 && values[0]) {
-                    return `nwr["${key}"="${values[0]}"](${bboxStr})`;
-                }
-                return `nwr["${key}"](${bboxStr})`;
-            };
-
-            const queryFragments = validFilters.map(f => buildSelector(f));
-            const combinedFragments = queryFragments.join(';');
-            const overpassQuery = `[out:json][timeout:60];(${combinedFragments});${recursivePart}${outPart}`;
+            const features = await executeQuery(overpassQuery);
             
-            const allFeatures = await executeQuery(overpassQuery);
-            
-            if (allFeatures.length > 0) {
-                 const layerName = `OSM: ${validFilters.map(f => f.key).join(', ')}`;
-                 const finalLayerName = `${layerName} (${allFeatures.length})`;
-                 const layerStyle = new Style({
-                    stroke: new Stroke({ color: '#fb8500', width: 2 }),
-                    fill: new Fill({ color: 'rgba(251, 133, 0, 0.2)' }),
-                    image: new CircleStyle({
-                        radius: 6,
-                        fill: new Fill({ color: 'rgba(251, 133, 0, 0.5)' }),
-                        stroke: new Stroke({ color: '#fb8500', width: 1.5 })
-                    })
-                });
-
-                const vectorSource = new VectorSource({ features: allFeatures });
+            if (features.length > 0) {
+                const vectorSource = new VectorSource({ features });
+                const catLayerName = `${config.name} (${features.length})`;
                 const newLayer = new VectorLayer({
                     source: vectorSource,
-                    style: layerStyle,
-                    properties: { id: `osm-custom-${nanoid()}`, name: finalLayerName, type: 'osm' }
+                    style: config.style,
+                    properties: { id: `osm-${config.id}-${nanoid()}`, name: catLayerName, type: 'osm' }
                 });
-                addLayer({ id: newLayer.get('id'), name: finalLayerName, olLayer: newLayer, visible: true, opacity: 1, type: 'osm' });
-                toast({ description: `Capa de búsqueda personalizada añadida con ${allFeatures.length} entidades.` });
+                addLayer({ id: newLayer.get('id'), name: catLayerName, olLayer: newLayer, visible: true, opacity: 1, type: 'osm' });
+                toast({ description: `Capa "${catLayerName}" añadida.` });
             } else {
-                toast({ description: `No se encontraron entidades para la búsqueda personalizada.` });
+                toast({ description: `No se encontraron entidades para "${config.name}".` });
             }
         }
     } catch (error: any) {
@@ -182,32 +118,11 @@ export const useOSMData = ({ mapRef, drawingSourceRef, addLayer, osmCategoryConf
     }
 
     if (extent) {
-      fetchAndProcessOSMData(extent, { type: 'categories', ids: selectedOSMCategoryIds });
+      fetchAndProcessOSMData(extent, selectedOSMCategoryIds);
     } else {
       toast({ description: 'No se pudo determinar un área para la búsqueda. Dibuja un polígono o asegúrate de que el mapa esté visible.' });
     }
   }, [drawingSourceRef, mapRef, toast, fetchAndProcessOSMData, selectedOSMCategoryIds]);
-
-  const fetchCustomOSMData = useCallback(async (filters: CustomFilter[], logicalOperator: 'AND' | 'OR') => {
-    let extent: Extent | undefined;
-    const drawingSource = drawingSourceRef.current;
-    const polygonFeature = drawingSource?.getFeatures().find(f => f.getGeometry()?.getType() === 'Polygon');
-
-    if (polygonFeature) {
-        extent = polygonFeature.getGeometry()!.getExtent();
-        toast({ description: 'Usando polígono dibujado como límite para la búsqueda OSM personalizada.' });
-    } else if (mapRef.current) {
-        extent = mapRef.current.getView().calculateExtent(mapRef.current.getSize());
-        toast({ description: 'Usando la vista actual como límite para la búsqueda OSM personalizada.' });
-    }
-
-    if (extent) {
-        fetchAndProcessOSMData(extent, { type: 'custom', filters: filters, operator: logicalOperator });
-    } else {
-        toast({ description: 'No se pudo determinar un área para la búsqueda. Dibuja un polígono o asegúrate de que el mapa esté visible.' });
-    }
-  }, [drawingSourceRef, mapRef, toast, fetchAndProcessOSMData]);
-
 
   const fetchOSMForCurrentView = useCallback(async (categoryIds: string[]) => {
     if (!mapRef.current) {
@@ -215,7 +130,7 @@ export const useOSMData = ({ mapRef, drawingSourceRef, addLayer, osmCategoryConf
         return;
     }
     const extent = mapRef.current.getView().calculateExtent(mapRef.current.getSize());
-    fetchAndProcessOSMData(extent, { type: 'categories', ids: categoryIds });
+    fetchAndProcessOSMData(extent, categoryIds);
   }, [mapRef, toast, fetchAndProcessOSMData]);
 
 
@@ -284,11 +199,8 @@ export const useOSMData = ({ mapRef, drawingSourceRef, addLayer, osmCategoryConf
     selectedOSMCategoryIds,
     setSelectedOSMCategoryIds,
     fetchOSMData,
-    fetchCustomOSMData,
     fetchOSMForCurrentView,
     isDownloading,
     handleDownloadOSMLayers: handleDownloadOSMLayers,
   };
 };
-
-    

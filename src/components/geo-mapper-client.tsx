@@ -49,64 +49,52 @@ import { StreetViewIcon } from './icons/StreetViewIcon';
 const osmCategoryConfig: OSMCategoryConfig[] = [
   {
     id: 'watercourses', name: 'OSM Cursos de Agua',
-    overpassQueryFragment: (bboxStr) => `nwr[waterway~"^(river|stream|canal)$"](${bboxStr});`,
-    matcher: (tags) => tags && (tags.waterway === 'river' || tags.waterway === 'stream' || tags.waterway === 'canal'),
+    overpassQueryFragment: (bboxStr) => `nwr[waterway~"^(river|stream|canal)$"](${bboxStr})`,
     style: new Style({ stroke: new Stroke({ color: '#3a86ff', width: 2 }) })
   },
   {
     id: 'water_bodies', name: 'OSM Cuerpos de Agua',
-    overpassQueryFragment: (bboxStr) => `nwr[natural="water"](${bboxStr});\nnwr[landuse="reservoir"](${bboxStr});`,
-    matcher: (tags) => tags && (tags.natural === 'water' || tags.landuse === 'reservoir'),
+    overpassQueryFragment: (bboxStr) => `nwr[natural="water"](${bboxStr});nwr[landuse="reservoir"](${bboxStr})`,
     style: new Style({ fill: new Fill({ color: 'rgba(58,134,255,0.4)' }), stroke: new Stroke({ color: '#3a86ff', width: 1 }) })
   },
   {
     id: 'roads_paths', name: 'OSM Rutas y Caminos',
-    overpassQueryFragment: (bboxStr) => `nwr[highway](${bboxStr});`,
-    matcher: (tags) => tags && !!tags.highway,
+    overpassQueryFragment: (bboxStr) => `nwr[highway](${bboxStr})`,
     style: new Style({ stroke: new Stroke({ color: '#adb5bd', width: 3 }) })
   },
     {
     id: 'bridges', name: 'OSM Puentes',
-    overpassQueryFragment: (bboxStr) => `nwr[~".*bridge.*"~".*",i](${bboxStr});nwr[~".*puente.*"~".*",i](${bboxStr});`,
-    matcher: (tags) => tags && Object.entries(tags).some(([key, value]) =>
-        /bridge|puente/i.test(key) || (typeof value === 'string' && /bridge|puente/i.test(value))
-    ),
+    overpassQueryFragment: (bboxStr) => `nwr[~".*bridge.*"~".*",i](${bboxStr});nwr[~".*puente.*"~".*",i](${bboxStr})`,
     style: new Style({ stroke: new Stroke({ color: '#6c757d', width: 4 }) })
   },
   {
     id: 'admin_boundaries', name: 'OSM Límites Admin.',
-    overpassQueryFragment: (bboxStr) => `nwr[boundary="administrative"][admin_level](${bboxStr});`,
-    matcher: (tags) => tags && tags.boundary === 'administrative' && tags.admin_level,
+    overpassQueryFragment: (bboxStr) => `nwr[boundary="administrative"][admin_level](${bboxStr})`,
     style: new Style({ stroke: new Stroke({ color: '#ff006e', width: 2, lineDash: [4, 8] }) })
   },
   {
     id: 'green_areas', name: 'OSM Áreas Verdes',
-    overpassQueryFragment: (bboxStr) => `nwr[leisure="park"](${bboxStr});\nnwr[landuse="forest"](${bboxStr});\nnwr[natural="wood"](${bboxStr});`,
-    matcher: (tags) => tags && (tags.leisure === 'park' || tags.landuse === 'forest' || tags.natural === 'wood'),
+    overpassQueryFragment: (bboxStr) => `nwr[leisure="park"](${bboxStr});nwr[landuse="forest"](${bboxStr});nwr[natural="wood"](${bboxStr})`,
     style: new Style({ fill: new Fill({ color: 'rgba(13,166,75,0.4)' }), stroke: new Stroke({ color: '#0da64b', width: 1 }) })
   },
   {
     id: 'health_centers', name: 'OSM Centros de Salud',
-    overpassQueryFragment: (bboxStr) => `nwr[amenity~"^(hospital|clinic|doctors|pharmacy)$"](${bboxStr});`,
-    matcher: (tags) => tags && ['hospital', 'clinic', 'doctors', 'pharmacy'].includes(tags.amenity),
+    overpassQueryFragment: (bboxStr) => `nwr[amenity~"^(hospital|clinic|doctors|pharmacy)$"](${bboxStr})`,
     style: new Style({ image: new CircleStyle({ radius: 6, fill: new Fill({color: '#d90429'}), stroke: new Stroke({color: 'white', width: 1.5})})})
   },
   {
     id: 'educational', name: 'OSM Educacionales',
-    overpassQueryFragment: (bboxStr) => `nwr[amenity~"^(school|university|college|kindergarten)$"](${bboxStr});`,
-    matcher: (tags) => tags && ['school', 'university', 'college', 'kindergarten'].includes(tags.amenity),
+    overpassQueryFragment: (bboxStr) => `nwr[amenity~"^(school|university|college|kindergarten)$"](${bboxStr})`,
     style: new Style({ image: new CircleStyle({ radius: 6, fill: new Fill({color: '#8338ec'}), stroke: new Stroke({color: 'white', width: 1.5})})})
   },
    {
     id: 'social_institutions', name: 'OSM Instituciones Sociales',
-    overpassQueryFragment: (bboxStr) => `nwr[amenity~"^(community_centre|social_facility|place_of_worship)$"](${bboxStr}); nwr[office="ngo"](${bboxStr}); nwr[leisure="club"](${bboxStr});`,
-    matcher: (tags) => tags && (tags.amenity === 'community_centre' || tags.amenity === 'social_facility' || tags.amenity === 'place_of_worship' || tags.office === 'ngo' || tags.leisure === 'club'),
+    overpassQueryFragment: (bboxStr) => `nwr[amenity~"^(community_centre|social_facility|place_of_worship)$"](${bboxStr}); nwr[office="ngo"](${bboxStr}); nwr[leisure="club"](${bboxStr})`,
     style: new Style({ image: new CircleStyle({ radius: 6, fill: new Fill({color: '#ff6b6b'}), stroke: new Stroke({color: 'white', width: 1.5})})})
   },
   {
     id: 'cultural_heritage', name: 'OSM Patrimonio Cultural',
-    overpassQueryFragment: (bboxStr) => `nwr[historic](${bboxStr}); nwr[tourism="museum"](${bboxStr}); nwr[tourism="artwork"](${bboxStr}); nwr[amenity="place_of_worship"][historic](${bboxStr}); nwr[amenity="place_of_worship"][heritage](${bboxStr});`,
-    matcher: (tags) => tags && (tags.historic || tags.tourism === 'museum' || tags.tourism === 'artwork' || (tags.amenity === 'place_of_worship' && (tags.historic || tags.heritage))),
+    overpassQueryFragment: (bboxStr) => `nwr[historic](${bboxStr}); nwr[tourism="museum"](${bboxStr}); nwr[tourism="artwork"](${bboxStr}); nwr[amenity="place_of_worship"][historic](${bboxStr}); nwr[amenity="place_of_worship"][heritage](${bboxStr})`,
     style: new Style({ image: new CircleStyle({ radius: 6, fill: new Fill({color: '#8d6e63'}), stroke: new Stroke({color: 'white', width: 1.5})})})
   },
 ];
@@ -712,7 +700,6 @@ export default function GeoMapperClient() {
             onSaveDrawnFeaturesAsKML={drawingInteractions.saveDrawnFeaturesAsKML}
             isFetchingOSM={osmDataHook.isFetchingOSM}
             onFetchOSMDataTrigger={osmDataHook.fetchOSMData}
-            onFetchCustomOSMData={osmDataHook.fetchCustomOSMData}
             osmCategoriesForSelection={osmCategoriesForSelection}
             selectedOSMCategoryIds={osmDataHook.selectedOSMCategoryIds}
             onSelectedOSMCategoriesChange={osmDataHook.setSelectedOSMCategoryIds}
