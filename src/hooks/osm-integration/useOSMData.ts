@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useCallback } from 'react';
@@ -17,6 +16,7 @@ import JSZip from 'jszip';
 import type Feature from 'ol/Feature';
 import type { Geometry } from 'ol/geom';
 import osmtogeojson from 'osmtogeojson';
+import { Style, Fill, Stroke, Circle as CircleStyle } from 'ol/style';
 
 
 interface UseOSMDataProps {
@@ -78,9 +78,7 @@ export const useOSMData = ({ mapRef, drawingSourceRef, addLayer, osmCategoryConf
             if (!config) continue;
 
             const queryFragment = config.overpassQueryFragment(bboxStr);
-             const overpassQuery = `[out:json][timeout:60];
-${queryFragment}
-out geom;`;
+             const overpassQuery = `[out:json][timeout:60];(${queryFragment});out geom;`;
             
             const features = await executeQuery(overpassQuery);
             
