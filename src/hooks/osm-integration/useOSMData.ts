@@ -83,6 +83,7 @@ export const useOSMData = ({ mapRef, drawingSourceRef, addLayer, osmCategoryConf
                         }
                     }
                 } else if (element.type === 'relation' && element.members) {
+                    // Try to use center point for relations if available, otherwise it will be skipped
                     if (element.center) {
                         geometry = { type: 'Point', coordinates: [element.center.lon, element.center.lat] };
                     }
@@ -145,18 +146,20 @@ export const useOSMData = ({ mapRef, drawingSourceRef, addLayer, osmCategoryConf
                 setIsFetchingOSM(false);
                 return;
             }
-             const buildSelector = (filter: CustomFilter) => {
+
+            const buildSelector = (filter: CustomFilter) => {
                 const values = filter.value.split(',').map(v => v.trim()).filter(v => v);
+                const key = filter.key.trim();
                 if (values.length > 1) {
                     const regexValue = `^(${values.join('|')})$`;
-                    return `["${filter.key}"~"${regexValue}"]`;
+                    return `nwr["${key}"~"${regexValue}"](${bboxStr})`;
                 } else if (values.length === 1 && values[0]) {
-                    return `["${filter.key}"="${values[0]}"]`;
+                    return `nwr["${key}"="${values[0]}"](${bboxStr})`;
                 }
-                return `["${filter.key}"]`;
+                return `nwr["${key}"](${bboxStr})`;
             };
             
-            const queryBody = validFilters.map(f => `nwr${buildSelector(f)}${bboxStr}`).join(';');
+            const queryBody = validFilters.map(f => buildSelector(f)).join(';');
             const overpassQuery = `[out:json][timeout:60];(${queryBody});${recursivePart}${outPart}`;
             
             const allFeatures = await executeQuery(overpassQuery);
@@ -317,5 +320,3 @@ export const useOSMData = ({ mapRef, drawingSourceRef, addLayer, osmCategoryConf
     handleDownloadOSMLayers: handleDownloadOSMLayers,
   };
 };
-
-    
