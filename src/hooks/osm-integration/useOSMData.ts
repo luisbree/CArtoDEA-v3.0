@@ -72,36 +72,33 @@ export const useOSMData = ({ mapRef, drawingSourceRef, addLayer, osmCategoryConf
             const queryFragments = selectedConfigs.map(c => c.overpassQueryFragment(bboxStr)).join('');
             overpassQuery = `[out:json][timeout:60];(${queryFragments});${recursivePart}${outPart}`;
         } else { // custom query
-            const filterFragments = query.filters.map(filter => {
+            const validFilters = query.filters.filter(f => f.key.trim() !== '');
+            if (validFilters.length === 0) {
+                toast({ description: 'Por favor, ingrese al menos un filtro válido.' });
+                setIsFetchingOSM(false);
+                return;
+            }
+
+            const buildSelector = (filter: CustomFilter) => {
                 const values = filter.value.split(',').map(v => v.trim()).filter(v => v);
                 if (values.length > 1) {
                     const regexValue = `^(${values.join('|')})$`;
-                    return `nwr["${filter.key}"~"${regexValue}"]${bboxStr}`;
+                    return `["${filter.key}"~"${regexValue}"]`;
                 } else if (values.length === 1 && values[0]) {
-                    return `nwr["${filter.key}"="${values[0]}"]${bboxStr}`;
-                } else {
-                    return `nwr["${filter.key}"]${bboxStr}`;
+                    return `["${filter.key}"="${values[0]}"]`;
                 }
-            });
+                return `["${filter.key}"]`;
+            };
 
             if (query.operator === 'AND') {
-                // For AND, each filter applies to the same element `nwr`
-                const combinedSelectors = query.filters.map(filter => {
-                    const values = filter.value.split(',').map(v => v.trim()).filter(v => v);
-                    if (values.length > 1) {
-                        return `["${filter.key}"~"^(${values.join('|')})$"]`;
-                    } else if (values.length === 1 && values[0]) {
-                        return `["${filter.key}"="${values[0]}"]`;
-                    } else {
-                        return `["${filter.key}"]`;
-                    }
-                }).join('');
-                overpassQuery = `[out:json][timeout:60];nwr${combinedSelectors}${bboxStr};${recursivePart}${outPart}`;
-                layerName = `OSM: ${query.filters.map(f => f.key).join(' Y ')}`;
+                const firstSelector = buildSelector(validFilters[0]);
+                const otherSelectors = validFilters.slice(1).map(buildSelector).join('');
+                overpassQuery = `[out:json][timeout:60];nwr${firstSelector}${otherSelectors}${bboxStr};${recursivePart}${outPart}`;
+                layerName = `OSM: ${validFilters.map(f => f.key).join(' Y ')}`;
             } else { // OR
-                const queryBody = filterFragments.join(';');
+                const queryBody = validFilters.map(f => `nwr${buildSelector(f)}${bboxStr}`).join(';');
                 overpassQuery = `[out:json][timeout:60];(${queryBody});${recursivePart}${outPart}`;
-                layerName = `OSM: ${query.filters.map(f => f.key).join(' O ')}`;
+                layerName = `OSM: ${validFilters.map(f => f.key).join(' O ')}`;
             }
         }
         
@@ -137,8 +134,6 @@ export const useOSMData = ({ mapRef, drawingSourceRef, addLayer, osmCategoryConf
                     }
                 }
             } else if (element.type === 'relation' && element.members) {
-                 // For relations, we rely on the `out geom;` from Overpass to provide a representative geometry
-                 // if available (like the center of the bounding box).
                  if (element.center) {
                     geometry = {
                         type: 'Point',
