@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Loader2, CloudDownload, Download } from 'lucide-react';
 import {
@@ -9,13 +9,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
-import shp from 'shpjs';
-import KML from 'ol/format/KML';
-import GeoJSON from 'ol/format/GeoJSON';
-import JSZip from 'jszip';
-import { useToast } from '@/hooks/use-toast';
-import type { MapLayer } from '@/lib/types';
-import type VectorLayer from 'ol/layer/Vector';
 
 interface OSMDownloadOptionsProps {
   isFetchingOSM: boolean;

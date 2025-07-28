@@ -41,9 +41,8 @@ interface ToolsPanelProps {
   selectedOSMCategoryIds: string[];
   onSelectedOSMCategoriesChange: (ids: string[]) => void;
   isDownloading: boolean;
-  onDownloadOSMLayers: (layers: MapLayer[], format: 'geojson' | 'kml' | 'shp') => void;
+  onDownloadOSMLayers: (format: 'geojson' | 'kml' | 'shp') => void;
   style?: React.CSSProperties;
-  layers: MapLayer[];
 }
 
 const SectionHeader: React.FC<{ title: string; description?: string; icon: React.ElementType }> = ({ title, description, icon: Icon }) => (
@@ -63,7 +62,6 @@ const ToolsPanel: React.FC<ToolsPanelProps> = ({
   onSelectedOSMCategoriesChange,
   isDownloading, onDownloadOSMLayers,
   style,
-  layers,
 }) => {
 
   const [activeAccordionItem, setActiveAccordionItem] = React.useState<string | undefined>('openstreetmap-section');
@@ -117,7 +115,7 @@ const ToolsPanel: React.FC<ToolsPanelProps> = ({
                     isFetchingOSM={isFetchingOSM}
                     onFetchOSMDataTrigger={onFetchOSMDataTrigger}
                     isDownloading={isDownloading}
-                    onDownloadOSMLayers={(format) => onDownloadOSMLayers(layers, format)}
+                    onDownloadOSMLayers={onDownloadOSMLayers}
                 />
               </AccordionContent>
             </AccordionItem>

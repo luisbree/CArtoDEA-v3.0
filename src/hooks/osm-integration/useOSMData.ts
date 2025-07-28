@@ -43,19 +43,19 @@ export const useOSMData = ({ mapRef, drawingSourceRef, addLayer, osmCategoryConf
     const mapProjection = getProjection('EPSG:3857');
     const dataProjection = getProjection('EPSG:4326');
     const transformedExtent = transformExtent(extent, mapProjection!, dataProjection!);
-    const bboxStr = `(${transformedExtent[1]},${transformedExtent[0]},${transformedExtent[3]},${transformedExtent[2]})`;
+    const bboxStr = `${transformedExtent[1]},${transformedExtent[0]},${transformedExtent[3]},${transformedExtent[2]}`;
     
     const geojsonFormat = new GeoJSON({
         featureProjection: 'EPSG:3857',
         dataProjection: 'EPSG:4326'
     });
 
-    const recursivePart = "(._;>;);";
-    const outPart = "out body;";
-
     const executeQuery = async (overpassQuery: string): Promise<Feature<Geometry>[]> => {
         try {
-            const response = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(overpassQuery)}`);
+            const response = await fetch(`https://overpass-api.de/api/interpreter`, {
+                method: 'POST',
+                body: `data=${encodeURIComponent(overpassQuery)}`,
+            });
             if (!response.ok) {
                 const errorText = await response.text();
                 throw new Error(`Overpass API error: ${response.status} ${errorText}`);
@@ -77,7 +77,13 @@ export const useOSMData = ({ mapRef, drawingSourceRef, addLayer, osmCategoryConf
             if (!config) continue;
 
             const queryFragment = config.overpassQueryFragment(bboxStr);
-            const overpassQuery = `[out:json][timeout:60];(${queryFragment});${recursivePart}${outPart}`;
+             const overpassQuery = `[out:json][timeout:60];
+                (
+                  ${queryFragment}
+                );
+                out body;
+                >;
+                out skel qt;`;
             
             const features = await executeQuery(overpassQuery);
             
@@ -134,14 +140,22 @@ export const useOSMData = ({ mapRef, drawingSourceRef, addLayer, osmCategoryConf
   }, [mapRef, toast, fetchAndProcessOSMData]);
 
 
-  const handleDownloadOSMLayers = useCallback(async (currentLayers: MapLayer[], format: 'geojson' | 'kml' | 'shp') => {
-      const osmLayers = currentLayers.filter(l => l.type === 'osm' && 'getSource' in l.olLayer);
-      if (osmLayers.length === 0) {
+  const handleDownloadOSMLayers = useCallback(async (format: 'geojson' | 'kml' | 'shp') => {
+      const osmLayers = mapRef.current?.getLayers().getArray()
+        .filter(l => l.get('type') === 'osm') as VectorLayer<any>[] | undefined;
+      
+      if (!osmLayers || osmLayers.length === 0) {
           toast({ description: "No hay capas OSM para descargar." });
           return;
       }
       setIsDownloading(true);
       try {
+          const allFeatures = osmLayers.flatMap(l => l.getSource()?.getFeatures() ?? []);
+          if (allFeatures.length === 0) {
+              toast({ description: "No hay entidades en las capas OSM para descargar." });
+              return;
+          }
+
           const geojsonFormat = new GeoJSON({
               featureProjection: 'EPSG:3857',
               dataProjection: 'EPSG:4326'
@@ -149,40 +163,37 @@ export const useOSMData = ({ mapRef, drawingSourceRef, addLayer, osmCategoryConf
 
           if (format === 'shp') {
               const zip = new JSZip();
-              for (const layer of osmLayers) {
-                  const vectorLayer = layer.olLayer as VectorLayer<any>;
-                  const features = vectorLayer.getSource().getFeatures();
-                  const geoJson = JSON.parse(geojsonFormat.writeFeatures(features));
-                  const shpBuffer = await shp.write(geoJson.features, 'GEOMETRY', {});
-                  zip.file(`${layer.name.replace(/ /g, '_')}.zip`, shpBuffer);
-              }
+              const geoJson = JSON.parse(geojsonFormat.writeFeatures(allFeatures));
+              const shpBuffer = await shp.write(geoJson.features, 'GEOMETRY', {});
+              zip.file(`osm_layers.zip`, shpBuffer);
               const content = await zip.generateAsync({ type: "blob" });
               const link = document.createElement("a");
               link.href = URL.createObjectURL(content);
               link.download = "osm_layers_shp.zip";
               link.click();
-
+              URL.revokeObjectURL(link.href);
+              link.remove();
           } else { 
-              let combinedString = '';
+              let textData: string;
               let fileExtension = format;
               let mimeType = 'text/plain';
 
               if (format === 'geojson') {
-                  const allFeatures = osmLayers.flatMap(l => (l.olLayer as VectorLayer<any>).getSource().getFeatures());
-                  combinedString = geojsonFormat.writeFeatures(allFeatures);
+                  textData = geojsonFormat.writeFeatures(allFeatures);
                   mimeType = 'application/geo+json';
-              } else if (format === 'kml') {
+              } else { // kml
                   const kmlFormat = new KML({ extractStyles: true });
-                  const allFeatures = osmLayers.flatMap(l => (l.olLayer as VectorLayer<any>).getSource().getFeatures());
-                  combinedString = kmlFormat.writeFeatures(allFeatures);
+                  textData = kmlFormat.writeFeatures(allFeatures);
                   mimeType = 'application/vnd.google-earth.kml+xml';
               }
               
-              const blob = new Blob([combinedString], { type: mimeType });
+              const blob = new Blob([textData], { type: mimeType });
               const link = document.createElement('a');
               link.href = URL.createObjectURL(blob);
               link.download = `osm_layers.${fileExtension}`;
               link.click();
+              URL.revokeObjectURL(link.href);
+              link.remove();
           }
           toast({ description: `Capas OSM descargadas como ${format.toUpperCase()}.` });
       } catch (error: any) {
@@ -191,7 +202,7 @@ export const useOSMData = ({ mapRef, drawingSourceRef, addLayer, osmCategoryConf
       } finally {
           setIsDownloading(false);
       }
-  }, [toast]);
+  }, [mapRef, toast]);
 
 
   return {
