@@ -50,52 +50,55 @@ import { StreetViewIcon } from './icons/StreetViewIcon';
 const osmCategoryConfig: OSMCategoryConfig[] = [
   {
     id: 'watercourses', name: 'OSM Cursos de Agua',
-    overpassQueryFragment: (bboxStr) => `nwr[waterway~"^(river|stream|canal)$"](${bboxStr});`,
+    overpassQueryFragment: (bboxStr) => `nwr[waterway~"^(river|stream|canal)$"](${bboxStr})`,
     style: new Style({ stroke: new Stroke({ color: '#3a86ff', width: 2 }) })
   },
   {
     id: 'water_bodies', name: 'OSM Cuerpos de Agua',
-    overpassQueryFragment: (bboxStr) => `nwr[natural="water"](${bboxStr});nwr[landuse="reservoir"](${bboxStr});`,
+    overpassQueryFragment: (bboxStr) => `nwr[natural="water"](${bboxStr});nwr[landuse="reservoir"](${bboxStr})`,
     style: new Style({ fill: new Fill({ color: 'rgba(58,134,255,0.4)' }), stroke: new Stroke({ color: '#3a86ff', width: 1 }) })
   },
   {
     id: 'roads_paths', name: 'OSM Rutas y Caminos',
-    overpassQueryFragment: (bboxStr) => `nwr[highway](${bboxStr});`,
+    overpassQueryFragment: (bboxStr) => `nwr[highway](${bboxStr})`,
     style: new Style({ stroke: new Stroke({ color: '#adb5bd', width: 3 }) })
   },
     {
     id: 'bridges', name: 'OSM Puentes',
-    overpassQueryFragment: (bboxStr) => `nwr[man_made="bridge"](${bboxStr});`,
-    style: new Style({ stroke: new Stroke({ color: '#6c757d', width: 4 }) })
+    overpassQueryFragment: (bboxStr) => `nwr[man_made="bridge"](${bboxStr})`,
+    style: new Style({ 
+      stroke: new Stroke({ color: '#6c757d', width: 4 }),
+      fill: new Fill({ color: 'rgba(108, 117, 125, 0.3)' })
+    })
   },
   {
     id: 'admin_boundaries', name: 'OSM Límites Admin.',
-    overpassQueryFragment: (bboxStr) => `nwr[boundary="administrative"](${bboxStr});`,
+    overpassQueryFragment: (bboxStr) => `nwr[boundary="administrative"](${bboxStr})`,
     style: new Style({ stroke: new Stroke({ color: '#ff006e', width: 2, lineDash: [4, 8] }) })
   },
   {
     id: 'green_areas', name: 'OSM Áreas Verdes',
-    overpassQueryFragment: (bboxStr) => `nwr[leisure~"^(park|garden)$"](${bboxStr});nwr[landuse~"^(forest|meadow|village_green)$"](${bboxStr});nwr[natural="wood"](${bboxStr});`,
+    overpassQueryFragment: (bboxStr) => `nwr[leisure~"^(park|garden)$"](${bboxStr});nwr[landuse~"^(forest|meadow|village_green)$"](${bboxStr});nwr[natural="wood"](${bboxStr})`,
     style: new Style({ fill: new Fill({ color: 'rgba(13,166,75,0.4)' }), stroke: new Stroke({ color: '#0da64b', width: 1 }) })
   },
   {
     id: 'health_centers', name: 'OSM Centros de Salud',
-    overpassQueryFragment: (bboxStr) => `nwr[amenity~"^(hospital|clinic|doctors|pharmacy)$"](${bboxStr});`,
+    overpassQueryFragment: (bboxStr) => `nwr[amenity~"^(hospital|clinic|doctors|pharmacy)$"](${bboxStr})`,
     style: new Style({ image: new CircleStyle({ radius: 6, fill: new Fill({color: '#d90429'}), stroke: new Stroke({color: 'white', width: 1.5})})})
   },
   {
     id: 'educational', name: 'OSM Educacionales',
-    overpassQueryFragment: (bboxStr) => `nwr[amenity~"^(school|university|college|kindergarten)$"](${bboxStr});`,
+    overpassQueryFragment: (bboxStr) => `nwr[amenity~"^(school|university|college|kindergarten)$"](${bboxStr})`,
     style: new Style({ image: new CircleStyle({ radius: 6, fill: new Fill({color: '#8338ec'}), stroke: new Stroke({color: 'white', width: 1.5})})})
   },
    {
     id: 'social_institutions', name: 'OSM Instituciones Sociales',
-    overpassQueryFragment: (bboxStr) => `nwr[amenity~"^(community_centre|social_facility)$"](${bboxStr});nwr[office~"^(ngo|union)$"](${bboxStr});nwr[club](${bboxStr});`,
+    overpassQueryFragment: (bboxStr) => `nwr[amenity~"^(community_centre|social_facility)$"](${bboxStr});nwr[office~"^(ngo|union)$"](${bboxStr});nwr[club](${bboxStr})`,
     style: new Style({ image: new CircleStyle({ radius: 6, fill: new Fill({color: '#ff6b6b'}), stroke: new Stroke({color: 'white', width: 1.5})})})
   },
   {
     id: 'cultural_heritage', name: 'OSM Patrimonio Cultural',
-    overpassQueryFragment: (bboxStr) => `nwr[historic](${bboxStr});nwr[heritage](${bboxStr});`,
+    overpassQueryFragment: (bboxStr) => `nwr[historic](${bboxStr});nwr[heritage](${bboxStr})`,
     style: new Style({ image: new CircleStyle({ radius: 6, fill: new Fill({color: '#8d6e63'}), stroke: new Stroke({color: 'white', width: 1.5})})})
   },
 ];
