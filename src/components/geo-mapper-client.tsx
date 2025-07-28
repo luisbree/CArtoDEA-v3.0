@@ -13,6 +13,10 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { Map as OLMap, View } from 'ol';
+import TileLayer from 'ol/layer/Tile';
+import type Layer from 'ol/layer/Layer';
+import type { Source as TileSource } from 'ol/source';
 
 
 import MapView, { BASE_LAYER_DEFINITIONS } from '@/components/map-view';
@@ -44,8 +48,6 @@ import type { OSMCategoryConfig, GeoServerDiscoveredLayer, BaseLayerOptionForSel
 import { chatWithMapAssistant, type MapAssistantOutput } from '@/ai/flows/find-layer-flow';
 import { searchTrelloCard } from '@/ai/flows/trello-actions';
 import { authenticateWithGee } from '@/ai/flows/gee-flow';
-import TileLayer from 'ol/layer/Tile';
-import type Layer from 'ol/layer/Layer';
 
 
 const osmCategoryConfig: OSMCategoryConfig[] = [
@@ -604,53 +606,122 @@ export default function GeoMapperClient() {
   
   const handleCaptureAndDownload = useCallback(async () => {
     if (!mapRef.current) {
-      toast({ description: "El mapa no está listo.", variant: "destructive" });
+      toast({ description: 'El mapa no está listo.', variant: 'destructive' });
       return;
     }
     if (isCapturing) return;
 
     setIsCapturing(true);
-    toast({ description: "Generando captura UHD..." });
+    toast({ description: 'Generando captura UHD...' });
 
     const map = mapRef.current;
-    
-    try {
-        const mapCanvas = map.getViewport().querySelector('canvas');
+    const view = map.getView();
+    const currentCenter = view.getCenter();
+    const currentResolution = view.getResolution();
+    const mapSize = map.getSize();
+
+    if (!currentCenter || !currentResolution || !mapSize) {
+      toast({
+        description: 'No se pudo obtener la vista actual del mapa.',
+        variant: 'destructive',
+      });
+      setIsCapturing(false);
+      return;
+    }
+
+    const uhdSize = [3840, 2160];
+    const newResolution = (currentResolution * mapSize[0]) / uhdSize[0];
+
+    const captureTarget = document.createElement('div');
+    captureTarget.style.width = `${uhdSize[0]}px`;
+    captureTarget.style.height = `${uhdSize[1]}px`;
+    captureTarget.style.position = 'absolute';
+    captureTarget.style.left = '-9999px';
+    captureTarget.style.top = '-9999px';
+    document.body.appendChild(captureTarget);
+
+    const baseLayerDef = BASE_LAYER_DEFINITIONS.find(
+      (def) => def.id === activeBaseLayerId
+    );
+    if (!baseLayerDef) {
+      toast({
+        description: 'No se pudo encontrar la capa base activa.',
+        variant: 'destructive',
+      });
+      setIsCapturing(false);
+      document.body.removeChild(captureTarget);
+      return;
+    }
+
+    let originalOlLayer: Layer | undefined;
+    map.getLayers().forEach((layer) => {
+      if (layer.get('isBaseLayer') && layer.getVisible()) {
+        originalOlLayer = layer;
+      }
+    });
+
+    if (!originalOlLayer || !originalOlLayer.getSource()) {
+      toast({
+        description: 'La capa base original no se encuentra o no tiene fuente.',
+        variant: 'destructive',
+      });
+      setIsCapturing(false);
+      document.body.removeChild(captureTarget);
+      return;
+    }
+
+    const captureLayer = new TileLayer({
+      source: originalOlLayer.getSource() as TileSource,
+    });
+
+    // Apply visual effects to the capture layer directly
+    const originalPrerender = originalOlLayer.get('prerenderListener');
+    const originalPostrender = originalOlLayer.get('postrenderListener');
+    if (originalPrerender) captureLayer.on('prerender', originalPrerender);
+    if (originalPostrender) captureLayer.on('postrender', originalPostrender);
+
+
+    const captureMap = new OLMap({
+      target: captureTarget,
+      layers: [captureLayer],
+      view: new View({
+        center: currentCenter,
+        resolution: newResolution,
+        projection: view.getProjection(),
+      }),
+      controls: [],
+    });
+
+    captureMap.once('rendercomplete', () => {
+      try {
+        const mapCanvas = captureTarget.querySelector('canvas');
         if (!mapCanvas) {
-            throw new Error("No se pudo encontrar el canvas para la captura.");
+          throw new Error('No se pudo encontrar el canvas para la captura.');
         }
         
-        // This is a direct capture of what's on screen.
-        // It will respect the visible layers, styles, and effects.
-        // The resolution will be that of the canvas on the screen.
         const dataUrl = mapCanvas.toDataURL('image/jpeg', 0.95);
 
         const link = document.createElement('a');
         link.href = dataUrl;
-        link.download = `map_capture_current_view.jpeg`;
+        link.download = `map_capture_UHD_${activeBaseLayerId}.jpeg`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        toast({ description: "Captura de la vista actual completada." });
-
-    } catch (e) {
-        console.error("Error capturing map:", e);
+        toast({ description: 'Captura UHD completada.' });
+      } catch (e) {
+        console.error('Error capturing map:', e);
         const errorMessage = e instanceof Error ? e.message : String(e);
-        // Provide more specific feedback for potential CORS issues.
-        if (errorMessage.includes('tainted')) {
-             toast({ 
-                title: "Error de Captura (CORS)",
-                description: "No se pudo capturar el mapa debido a restricciones de seguridad del navegador (CORS). Intente con una capa base diferente.", 
-                variant: "destructive",
-                duration: 7000,
-             });
-        } else {
-            toast({ description: `Error al generar la captura: ${errorMessage}`, variant: "destructive" });
-        }
-    } finally {
+        toast({
+          description: `Error al generar la captura: ${errorMessage}`,
+          variant: 'destructive',
+        });
+      } finally {
+        captureMap.setTarget(undefined);
+        document.body.removeChild(captureTarget);
         setIsCapturing(false);
-    }
-  }, [mapRef, toast, isCapturing]);
+      }
+    });
+  }, [mapRef, activeBaseLayerId, toast, isCapturing]);
 
 
   return (
@@ -721,7 +792,7 @@ export default function GeoMapperClient() {
             panelRef={layersPanelRef}
             isCollapsed={panels.layers.isCollapsed}
             onToggleCollapse={() => togglePanelCollapse('layers')}
-            onClosePanel={()={() => togglePanelMinimize('layers')}
+            onClosePanel={() => togglePanelMinimize('layers')}
             onMouseDownHeader={(e) => handlePanelMouseDown(e, 'layers')}
             availableBaseLayers={availableBaseLayersForSelect}
             activeBaseLayerId={activeBaseLayerId}
@@ -747,7 +818,7 @@ export default function GeoMapperClient() {
                 panelRef={deasCatalogPanelRef}
                 isCollapsed={panels.deasCatalog.isCollapsed}
                 onToggleCollapse={() => togglePanelCollapse('deasCatalog')}
-                onClosePanel={()={() => togglePanelMinimize('deasCatalog')}
+                onClosePanel={() => togglePanelMinimize('deasCatalog')}
                 onMouseDownHeader={(e) => handlePanelMouseDown(e, 'deasCatalog')}
                 discoveredLayers={discoveredGeoServerLayers}
                 onAddWfsLayer={handleDeasAddWfsLayer}
@@ -760,7 +831,7 @@ export default function GeoMapperClient() {
             panelRef={toolsPanelRef}
             isCollapsed={panels.tools.isCollapsed}
             onToggleCollapse={() => togglePanelCollapse('tools')}
-            onClosePanel={()={() => togglePanelMinimize('tools')}
+            onClosePanel={() => togglePanelMinimize('tools')}
             onMouseDownHeader={(e) => handlePanelMouseDown(e, 'tools')}
             activeDrawTool={drawingInteractions.activeDrawTool}
             onToggleDrawingTool={drawingInteractions.toggleDrawingTool}
@@ -782,7 +853,7 @@ export default function GeoMapperClient() {
             panelRef={legendPanelRef}
             isCollapsed={panels.legend.isCollapsed}
             onToggleCollapse={() => togglePanelCollapse('legend')}
-            onClosePanel={()={() => togglePanelMinimize('legend')}
+            onClosePanel={() => togglePanelMinimize('legend')}
             onMouseDownHeader={(e) => handlePanelMouseDown(e, 'legend')}
             layers={layerManagerHook.layers}
             onToggleLayerVisibility={layerManagerHook.toggleLayerVisibility}
@@ -838,8 +909,8 @@ export default function GeoMapperClient() {
                 scale={printLayoutData.scale}
                 panelRef={printComposerPanelRef}
                 isCollapsed={panels.printComposer.isCollapsed}
-                onToggleCollapse={()={() => togglePanelCollapse('printComposer')}
-                onClosePanel={()={() => togglePanelMinimize('printComposer')}
+                onToggleCollapse={() => togglePanelCollapse('printComposer')}
+                onClosePanel={() => togglePanelMinimize('printComposer')}
                 onMouseDownHeader={(e) => handlePanelMouseDown(e, 'printComposer')}
                 style={{ top: `${panels.printComposer.position.y}px`, left: `${panels.printComposer.position.x}px`, zIndex: panels.printComposer.zIndex }}
                 isRefreshing={isCapturing}
@@ -850,8 +921,8 @@ export default function GeoMapperClient() {
           <GeeProcessingPanel
             panelRef={geePanelRef}
             isCollapsed={panels.gee.isCollapsed}
-            onToggleCollapse={()={() => togglePanelCollapse('gee')}
-            onClosePanel={()={() => togglePanelMinimize('gee')}
+            onToggleCollapse={() => togglePanelCollapse('gee')}
+            onClosePanel={() => togglePanelMinimize('gee')}
             onMouseDownHeader={(e) => handlePanelMouseDown(e, 'gee')}
             onAddGeeLayer={layerManagerHook.addGeeLayerToMap}
             mapRef={mapRef}
@@ -865,8 +936,8 @@ export default function GeoMapperClient() {
           <AIPanel
             panelRef={aiPanelRef}
             isCollapsed={panels.ai.isCollapsed}
-            onToggleCollapse={()={() => togglePanelCollapse('ai')}
-            onClosePanel={()={() => togglePanelMinimize('ai')}
+            onToggleCollapse={() => togglePanelCollapse('ai')}
+            onClosePanel={() => togglePanelMinimize('ai')}
             onMouseDownHeader={(e) => handlePanelMouseDown(e, 'ai')}
             availableLayers={discoveredGeoServerLayers.map(l => ({ name: l.name, title: l.title }))}
             activeLayers={layerManagerHook.layers.map(l => {
@@ -884,8 +955,8 @@ export default function GeoMapperClient() {
           <TrelloPanel
             panelRef={trelloPanelRef}
             isCollapsed={panels.trello.isCollapsed}
-            onToggleCollapse={()={() => togglePanelCollapse('trello')}
-            onClosePanel={()={() => togglePanelMinimize('trello')}
+            onToggleCollapse={() => togglePanelCollapse('trello')}
+            onClosePanel={() => togglePanelMinimize('trello')}
             onMouseDownHeader={(e) => handlePanelMouseDown(e, 'trello')}
             onSearchCard={handleSearchTrelloCard}
             isLoading={isTrelloLoading}
@@ -897,8 +968,8 @@ export default function GeoMapperClient() {
           <WfsLibraryPanel
             panelRef={wfsLibraryPanelRef}
             isCollapsed={panels.wfsLibrary.isCollapsed}
-            onToggleCollapse={()={() => togglePanelCollapse('wfsLibrary')}
-            onClosePanel={()={() => togglePanelMinimize('wfsLibrary')}
+            onToggleCollapse={() => togglePanelCollapse('wfsLibrary')}
+            onClosePanel={() => togglePanelMinimize('wfsLibrary')}
             onMouseDownHeader={(e) => handlePanelMouseDown(e, 'wfsLibrary')}
             style={{ top: `${panels.wfsLibrary.position.y}px`, left: `${panels.wfsLibrary.position.x}px`, zIndex: panels.wfsLibrary.zIndex }}
             predefinedServers={wfsLibraryHook.PREDEFINED_SERVERS}
@@ -913,8 +984,8 @@ export default function GeoMapperClient() {
           <HelpPanel
             panelRef={helpPanelRef}
             isCollapsed={panels.help.isCollapsed}
-            onToggleCollapse={()={() => togglePanelCollapse('help')}
-            onClosePanel={()={() => togglePanelMinimize('help')}
+            onToggleCollapse={() => togglePanelCollapse('help')}
+            onClosePanel={() => togglePanelMinimize('help')}
             onMouseDownHeader={(e) => handlePanelMouseDown(e, 'help')}
             style={{ top: `${panels.help.position.y}px`, left: `${panels.help.position.x}px`, zIndex: panels.help.zIndex }}
           />
@@ -923,5 +994,3 @@ export default function GeoMapperClient() {
     </div>
   );
 }
-
-    
