@@ -51,64 +51,51 @@ const osmCategoryConfig: OSMCategoryConfig[] = [
   {
     id: 'watercourses', name: 'OSM Cursos de Agua',
     overpassQueryFragment: (bboxStr) => `nwr[waterway~"^(river|stream|canal)$"](${bboxStr});`,
-    matcher: (tags) => tags.waterway && ['river', 'stream', 'canal'].includes(tags.waterway),
     style: new Style({ stroke: new Stroke({ color: '#3a86ff', width: 2 }) })
   },
   {
     id: 'water_bodies', name: 'OSM Cuerpos de Agua',
     overpassQueryFragment: (bboxStr) => `nwr[natural="water"](${bboxStr});nwr[landuse="reservoir"](${bboxStr});`,
-    matcher: (tags) => tags.natural === 'water' || tags.landuse === 'reservoir',
     style: new Style({ fill: new Fill({ color: 'rgba(58,134,255,0.4)' }), stroke: new Stroke({ color: '#3a86ff', width: 1 }) })
   },
   {
     id: 'roads_paths', name: 'OSM Rutas y Caminos',
     overpassQueryFragment: (bboxStr) => `nwr[highway](${bboxStr});`,
-    matcher: (tags) => !!tags.highway,
     style: new Style({ stroke: new Stroke({ color: '#adb5bd', width: 3 }) })
   },
   {
     id: 'bridges', name: 'OSM Puentes',
     overpassQueryFragment: (bboxStr) => `nwr[man_made="bridge"](${bboxStr});`,
-    matcher: (tags) => tags.man_made === 'bridge',
-    style: new Style({
-      stroke: new Stroke({ color: '#6c757d', width: 4 }),
-      fill: new Fill({ color: 'rgba(108, 117, 125, 0.3)' })
-    })
+    style: new Style() // Transparent style
   },
   {
     id: 'admin_boundaries', name: 'OSM Límites Admin.',
     overpassQueryFragment: (bboxStr) => `nwr[boundary="administrative"](${bboxStr});`,
-    matcher: (tags) => tags.boundary === 'administrative',
     style: new Style({ stroke: new Stroke({ color: '#ff006e', width: 2, lineDash: [4, 8] }) })
   },
   {
     id: 'green_areas', name: 'OSM Áreas Verdes',
     overpassQueryFragment: (bboxStr) => `nwr[leisure~"^(park|garden)$"](${bboxStr});nwr[landuse~"^(forest|meadow|village_green)$"](${bboxStr});nwr[natural="wood"](${bboxStr});`,
-    matcher: (tags) => (tags.leisure && ['park', 'garden'].includes(tags.leisure)) || (tags.landuse && ['forest', 'meadow', 'village_green'].includes(tags.landuse)) || tags.natural === 'wood',
     style: new Style({ fill: new Fill({ color: 'rgba(13,166,75,0.4)' }), stroke: new Stroke({ color: '#0da64b', width: 1 }) })
   },
   {
     id: 'health_centers', name: 'OSM Centros de Salud',
     overpassQueryFragment: (bboxStr) => `nwr[amenity~"^(hospital|clinic|doctors|pharmacy)$"](${bboxStr});`,
-    matcher: (tags) => tags.amenity && ['hospital', 'clinic', 'doctors', 'pharmacy'].includes(tags.amenity),
     style: new Style({ image: new CircleStyle({ radius: 6, fill: new Fill({color: '#d90429'}), stroke: new Stroke({color: 'white', width: 1.5})})})
   },
   {
     id: 'educational', name: 'OSM Educacionales',
     overpassQueryFragment: (bboxStr) => `nwr[amenity~"^(school|university|college|kindergarten)$"](${bboxStr});`,
-    matcher: (tags) => tags.amenity && ['school', 'university', 'college', 'kindergarten'].includes(tags.amenity),
     style: new Style({ image: new CircleStyle({ radius: 6, fill: new Fill({color: '#8338ec'}), stroke: new Stroke({color: 'white', width: 1.5})})})
   },
   {
     id: 'social_institutions', name: 'OSM Instituciones Sociales',
-    overpassQueryFragment: (bboxStr) => `nwr[amenity~"^(community_centre|social_facility)$"](${bboxStr});nwr[office="ngo"](${bboxStr});nwr[office="union"](${bboxStr});nwr[club](${bboxStr});`,
-    matcher: (tags) => (tags.amenity && ['community_centre', 'social_facility'].includes(tags.amenity)) || tags.office === 'ngo' || tags.office === 'union' || !!tags.club,
+    overpassQueryFragment: (bboxStr) => `nwr[amenity~"^(community_centre|social_facility)$"](${bboxStr});nwr[office="ngo"](${bboxStr});`,
     style: new Style({ image: new CircleStyle({ radius: 6, fill: new Fill({color: '#ff6b6b'}), stroke: new Stroke({color: 'white', width: 1.5})})})
   },
   {
     id: 'cultural_heritage', name: 'OSM Patrimonio Cultural',
-    overpassQueryFragment: (bboxStr) => `nwr[historic](${bboxStr});nwr[heritage](${bboxStr});`,
-    matcher: (tags) => !!tags.historic || !!tags.heritage,
+    overpassQueryFragment: (bboxStr) => `nwr[historic](${bboxStr});nwr[tourism~"^(museum|artwork)$"](${bboxStr});nwr[heritage](${bboxStr});`,
     style: new Style({ image: new CircleStyle({ radius: 6, fill: new Fill({color: '#8d6e63'}), stroke: new Stroke({color: 'white', width: 1.5})})})
   },
 ];
@@ -675,7 +662,7 @@ export default function GeoMapperClient() {
             availableBaseLayers={availableBaseLayersForSelect}
             activeBaseLayerId={activeBaseLayerId}
             onChangeBaseLayer={handleChangeBaseLayer}
-            onOpenStreetView={handleOpenStreetView}
+            onOpenStreetView={onOpenStreetView}
             onZoomToBoundingBox={zoomToBoundingBox}
             onFindSentinel2Footprints={layerManagerHook.findSentinel2FootprintsInCurrentView}
             onClearSentinel2Footprints={layerManagerHook.clearSentinel2FootprintsLayer}

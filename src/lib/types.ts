@@ -24,7 +24,6 @@ export interface OSMCategoryConfig {
   id: string;
   name: string;
   overpassQueryFragment: (bboxStr: string) => string;
-  matcher: (tags: Record<string, any>) => boolean;
   style: Style;
 }
 
