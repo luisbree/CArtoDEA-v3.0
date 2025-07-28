@@ -51,15 +51,19 @@ export const useOSMData = ({ mapRef, drawingSourceRef, addLayer, osmCategoryConf
         featureProjection: 'EPSG:3857',
         dataProjection: 'EPSG:4326'
     });
-
-    const executeQuery = async (queryFragment: string): Promise<Feature<Geometry>[]> => {
+    
+    const executeQuery = async (queryFragments: string[]): Promise<Feature<Geometry>[]> => {
+        // Construct a single, valid Overpass query with a union
+        const combinedFragments = queryFragments.map(frag => `${frag};`).join('\n');
         const overpassQuery = `
           [out:json][timeout:60];
           (
-            ${queryFragment}
+            ${combinedFragments}
           );
+          (._;>;);
           out geom;
         `;
+        
         try {
             const response = await fetch(`https://overpass-api.de/api/interpreter`, {
                 method: 'POST',
@@ -82,24 +86,49 @@ export const useOSMData = ({ mapRef, drawingSourceRef, addLayer, osmCategoryConf
     };
     
     try {
-        for (const categoryId of categoryIds) {
-            const config = osmCategoryConfigs.find(c => c.id === categoryId);
-            if (!config) continue;
+        const queryFragments = categoryIds.map(id => {
+            const config = osmCategoryConfigs.find(c => c.id === id);
+            return config ? config.overpassQueryFragment(bboxStr) : null;
+        }).filter((q): q is string => q !== null);
 
-            const features = await executeQuery(config.overpassQueryFragment(bboxStr));
+        if (queryFragments.length > 0) {
+            const allFeatures = await executeQuery(queryFragments);
+            const featuresByCategory: Record<string, Feature<Geometry>[]> = {};
             
-            if (features.length > 0) {
-                const layerName = `${config.name} (${features.length})`;
-                const vectorSource = new VectorSource({ features });
-                const newLayer = new VectorLayer({
-                    source: vectorSource,
-                    style: config.style,
-                    properties: { id: `osm-${config.id}-${nanoid()}`, name: layerName, type: 'osm' }
-                });
-                addLayer({ id: newLayer.get('id'), name: layerName, olLayer: newLayer, visible: true, opacity: 1, type: 'osm' });
-                toast({ description: `Capa "${layerName}" añadida.` });
+            allFeatures.forEach(feature => {
+                 for (const categoryId of categoryIds) {
+                    const config = osmCategoryConfigs.find(c => c.id === categoryId);
+                    if (config && config.matcher(feature.getProperties())) {
+                        if (!featuresByCategory[categoryId]) {
+                            featuresByCategory[categoryId] = [];
+                        }
+                        featuresByCategory[categoryId].push(feature);
+                        break; // Assign to first matching category
+                    }
+                }
+            });
+
+            let layersAdded = 0;
+            for (const categoryId in featuresByCategory) {
+                const config = osmCategoryConfigs.find(c => c.id === categoryId);
+                const features = featuresByCategory[categoryId];
+                if (config && features.length > 0) {
+                    const layerName = `${config.name} (${features.length})`;
+                    const vectorSource = new VectorSource({ features });
+                    const newLayer = new VectorLayer({
+                        source: vectorSource,
+                        style: config.style,
+                        properties: { id: `osm-${config.id}-${nanoid()}`, name: layerName, type: 'osm' }
+                    });
+                    addLayer({ id: newLayer.get('id'), name: layerName, olLayer: newLayer, visible: true, opacity: 1, type: 'osm' });
+                    layersAdded++;
+                }
+            }
+            
+            if (layersAdded > 0) {
+              toast({ description: `${layersAdded} capa(s) de OSM añadidas/actualizadas.` });
             } else {
-                toast({ description: `No se encontraron entidades para la categoría "${config.name}".` });
+              toast({ description: 'No se encontraron entidades para las categorías seleccionadas.' });
             }
         }
     } catch (error: any) {
