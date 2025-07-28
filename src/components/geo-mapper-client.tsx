@@ -27,7 +27,6 @@ import HelpPanel from '@/components/panels/HelpPanel';
 import PrintComposerPanel from '@/components/panels/PrintComposerPanel';
 import DeasCatalogPanel from '@/components/panels/DeasCatalogPanel';
 import GeeProcessingPanel from '@/components/panels/GeeProcessingPanel';
-import CameraPanel from '@/components/panels/CameraPanel';
 import WfsLoadingIndicator from '@/components/feedback/WfsLoadingIndicator';
 
 import { useOpenLayersMap } from '@/hooks/map-core/useOpenLayersMap';
@@ -45,60 +44,72 @@ import type { OSMCategoryConfig, GeoServerDiscoveredLayer, BaseLayerOptionForSel
 import { chatWithMapAssistant, type MapAssistantOutput } from '@/ai/flows/find-layer-flow';
 import { searchTrelloCard } from '@/ai/flows/trello-actions';
 import { authenticateWithGee } from '@/ai/flows/gee-flow';
+import TileLayer from 'ol/layer/Tile';
 
 
 const osmCategoryConfig: OSMCategoryConfig[] = [
   {
     id: 'watercourses', name: 'OSM Cursos de Agua',
     overpassQueryFragment: (bboxStr) => `nwr[waterway~"^(river|stream|canal)$"](${bboxStr});`,
-    style: new Style({ stroke: new Stroke({ color: '#3a86ff', width: 2 }) })
+    style: new Style({ stroke: new Stroke({ color: '#3a86ff', width: 2 }) }),
+    matcher: (tags) => tags['waterway'] === 'river' || tags['waterway'] === 'stream' || tags['waterway'] === 'canal'
   },
   {
     id: 'water_bodies', name: 'OSM Cuerpos de Agua',
     overpassQueryFragment: (bboxStr) => `nwr[natural="water"](${bboxStr});nwr[landuse="reservoir"](${bboxStr});`,
-    style: new Style({ fill: new Fill({ color: 'rgba(58,134,255,0.4)' }), stroke: new Stroke({ color: '#3a86ff', width: 1 }) })
+    style: new Style({ fill: new Fill({ color: 'rgba(58,134,255,0.4)' }), stroke: new Stroke({ color: '#3a86ff', width: 1 }) }),
+    matcher: (tags) => tags['natural'] === 'water' || tags['landuse'] === 'reservoir'
   },
   {
     id: 'roads_paths', name: 'OSM Rutas y Caminos',
     overpassQueryFragment: (bboxStr) => `nwr[highway](${bboxStr});`,
-    style: new Style({ stroke: new Stroke({ color: '#adb5bd', width: 2 }) })
+    style: new Style({ stroke: new Stroke({ color: '#adb5bd', width: 2 }) }),
+    matcher: (tags) => !!tags['highway']
   },
   {
     id: 'bridges', name: 'OSM Puentes',
     overpassQueryFragment: (bboxStr) => `nwr[man_made="bridge"](${bboxStr});`,
-    style: new Style({ stroke: new Stroke({ color: '#6c757d', width: 4 }) })
+    style: new Style({ stroke: new Stroke({ color: '#6c757d', width: 4 }) }),
+    matcher: (tags) => tags['man_made'] === 'bridge'
   },
   {
     id: 'admin_boundaries', name: 'OSM Límites Admin.',
     overpassQueryFragment: (bboxStr) => `nwr[boundary="administrative"](${bboxStr});`,
-    style: new Style({ stroke: new Stroke({ color: '#ff006e', width: 2, lineDash: [4, 8] }) })
+    style: new Style({ stroke: new Stroke({ color: '#ff006e', width: 2, lineDash: [4, 8] }) }),
+    matcher: (tags) => tags['boundary'] === 'administrative'
   },
   {
     id: 'green_areas', name: 'OSM Áreas Verdes',
     overpassQueryFragment: (bboxStr) => `nwr[leisure~"^(park|garden)$"](${bboxStr});nwr[landuse~"^(forest|meadow|village_green)$"](${bboxStr});nwr[natural="wood"](${bboxStr});`,
-    style: new Style({ fill: new Fill({ color: 'rgba(13,166,75,0.4)' }), stroke: new Stroke({ color: '#0da64b', width: 1 }) })
+    style: new Style({ fill: new Fill({ color: 'rgba(13,166,75,0.4)' }), stroke: new Stroke({ color: '#0da64b', width: 1 }) }),
+    matcher: (tags) => ['park', 'garden'].includes(tags['leisure']) || ['forest', 'meadow', 'village_green'].includes(tags['landuse']) || tags['natural'] === 'wood'
   },
   {
     id: 'health_centers', name: 'OSM Centros de Salud',
     overpassQueryFragment: (bboxStr) => `nwr[amenity~"^(hospital|clinic|doctors|pharmacy)$"](${bboxStr});`,
-    style: new Style({ image: new CircleStyle({ radius: 6, fill: new Fill({color: '#d90429'}), stroke: new Stroke({color: 'white', width: 1.5})})})
+    style: new Style({ image: new CircleStyle({ radius: 6, fill: new Fill({color: '#d90429'}), stroke: new Stroke({color: 'white', width: 1.5})})}),
+    matcher: (tags) => ['hospital', 'clinic', 'doctors', 'pharmacy'].includes(tags['amenity'])
   },
   {
     id: 'educational', name: 'OSM Educacionales',
     overpassQueryFragment: (bboxStr) => `nwr[amenity~"^(school|university|college|kindergarten)$"](${bboxStr});`,
-    style: new Style({ image: new CircleStyle({ radius: 6, fill: new Fill({color: '#8338ec'}), stroke: new Stroke({color: 'white', width: 1.5})})})
+    style: new Style({ image: new CircleStyle({ radius: 6, fill: new Fill({color: '#8338ec'}), stroke: new Stroke({color: 'white', width: 1.5})})}),
+    matcher: (tags) => ['school', 'university', 'college', 'kindergarten'].includes(tags['amenity'])
   },
   {
     id: 'social_institutions', name: 'OSM Instituciones Sociales',
     overpassQueryFragment: (bboxStr) => `nwr[amenity="community_centre"](${bboxStr});`,
-    style: new Style({ image: new CircleStyle({ radius: 6, fill: new Fill({color: '#ff6b6b'}), stroke: new Stroke({color: 'white', width: 1.5})})})
+    style: new Style({ image: new CircleStyle({ radius: 6, fill: new Fill({color: '#ff6b6b'}), stroke: new Stroke({color: 'white', width: 1.5})})}),
+    matcher: (tags) => tags['amenity'] === 'community_centre'
   },
   {
     id: 'cultural_heritage', name: 'OSM Patrimonio Cultural',
     overpassQueryFragment: (bboxStr) => `nwr[historic](${bboxStr});nwr[heritage](${bboxStr});`,
-    style: new Style({ image: new CircleStyle({ radius: 6, fill: new Fill({color: '#8d6e63'}), stroke: new Stroke({color: 'white', width: 1.5})})})
+    style: new Style({ image: new CircleStyle({ radius: 6, fill: new Fill({color: '#8d6e63'}), stroke: new Stroke({color: 'white', width: 1.5})})}),
+    matcher: (tags) => !!tags['historic'] || !!tags['heritage']
   },
 ];
+
 
 const osmCategoriesForSelection = osmCategoryConfig.map(({ id, name }) => ({ id, name }));
 const availableBaseLayersForSelect: BaseLayerOptionForSelect[] = BASE_LAYER_DEFINITIONS.map(def => ({ id: def.id, name: def.name }));
@@ -116,7 +127,6 @@ const panelToggleConfigs = [
   { id: 'attributes', IconComponent: ListChecks, name: "Atributos" },
   { id: 'printComposer', IconComponent: Printer, name: "Impresión" },
   { id: 'gee', IconComponent: BrainCircuit, name: "Procesamiento GEE" },
-  { id: 'camera', IconComponent: Camera, name: "Captura" },
   { id: 'ai', IconComponent: Sparkles, name: "Asistente IA" },
   { id: 'help', IconComponent: LifeBuoy, name: "Ayuda" },
 ];
@@ -135,7 +145,6 @@ export default function GeoMapperClient() {
   const printComposerPanelRef = useRef<HTMLDivElement>(null);
   const deasCatalogPanelRef = useRef<HTMLDivElement>(null);
   const geePanelRef = useRef<HTMLDivElement>(null);
-  const cameraPanelRef = useRef<HTMLDivElement>(null);
 
   const { mapRef, mapElementRef, setMapInstanceAndElement, isMapReady, drawingSourceRef } = useOpenLayersMap();
   const { toast } = useToast();
@@ -152,7 +161,7 @@ export default function GeoMapperClient() {
     printComposerPanelRef,
     deasCatalogPanelRef,
     geePanelRef,
-    cameraPanelRef,
+    cameraPanelRef: useRef<HTMLDivElement>(null), // Pass a dummy ref
     mapAreaRef,
     panelWidth: PANEL_WIDTH,
     panelPadding: PANEL_PADDING,
@@ -193,6 +202,7 @@ export default function GeoMapperClient() {
   const [printLayoutData, setPrintLayoutData] = useState<MapCaptureData | null>(null);
   const [isGeeAuthenticated, setIsGeeAuthenticated] = useState(false);
   const [isGeeAuthenticating, setIsGeeAuthenticating] = useState(true); // Start as true
+  const [isCapturing, setIsCapturing] = useState(false);
 
 
   const updateDiscoveredLayerState = useCallback((layerName: string, added: boolean, type: 'wms' | 'wfs') => {
@@ -297,7 +307,7 @@ export default function GeoMapperClient() {
     toggleInspectMode: featureInspectionHook.toggleInspectMode,
   });
 
-  const { captureMapDataUrl, isCapturing } = useMapCapture({ mapRef, activeBaseLayerId });
+  const { captureMapDataUrl } = useMapCapture({ mapRef, activeBaseLayerId });
 
   // This effect sets up and cleans up the event listener for map movement.
   // It re-attaches the listener when dependencies change, ensuring it never has a "stale" state.
@@ -590,6 +600,81 @@ export default function GeoMapperClient() {
         toast({ description: "Error al obtener las coordenadas para Street View.", variant: "destructive" });
     }
   }, [mapRef, toast]);
+  
+  const handleCaptureAndDownload = useCallback(async () => {
+    if (!mapRef.current) {
+      toast({ description: "El mapa no está listo.", variant: "destructive" });
+      return;
+    }
+    if (isCapturing) return;
+
+    setIsCapturing(true);
+    toast({ description: "Generando captura UHD..." });
+
+    const map = mapRef.current;
+    const view = map.getView();
+    const currentCenter = view.getCenter();
+    const currentResolution = view.getResolution();
+
+    if (!currentCenter || !currentResolution) {
+      toast({ description: "No se pudo obtener la vista del mapa.", variant: "destructive" });
+      setIsCapturing(false);
+      return;
+    }
+
+    const baseLayer = map.getLayers().getArray().find(l => l.get('isBaseLayer') && l.getVisible()) as TileLayer<any> | undefined;
+    
+    if (!baseLayer) {
+        toast({ description: "No se encontró una capa base visible para capturar.", variant: "destructive" });
+        setIsCapturing(false);
+        return;
+    }
+    
+    const renderTarget = document.createElement('div');
+    renderTarget.style.width = '3840px';
+    renderTarget.style.height = '2160px';
+    renderTarget.style.position = 'absolute';
+    renderTarget.style.left = '-9999px';
+    renderTarget.style.top = '-9999px';
+    document.body.appendChild(renderTarget);
+
+    const captureMap = new (await import('ol/Map')).default({
+        target: renderTarget,
+        pixelRatio: 1,
+        layers: [ new TileLayer({ source: baseLayer.getSource() }) ],
+        view: new (await import('ol/View')).default({
+            center: currentCenter,
+            resolution: currentResolution,
+            projection: view.getProjection(),
+        }),
+        controls: [],
+    });
+
+    captureMap.once('rendercomplete', () => {
+        try {
+            const mapCanvas = renderTarget.querySelector('canvas');
+            if (!mapCanvas) {
+                throw new Error("No se pudo encontrar el canvas para la captura.");
+            }
+            const dataUrl = mapCanvas.toDataURL('image/jpeg', 0.95);
+            const link = document.createElement('a');
+            link.href = dataUrl;
+            link.download = `map_capture_${activeBaseLayerId}_UHD.jpeg`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            toast({ description: "Captura completada y descarga iniciada." });
+        } catch (error) {
+            console.error("Error generating JPEG:", error);
+            toast({ description: "Error al generar la imagen JPEG.", variant: "destructive" });
+        } finally {
+            captureMap.setTarget(undefined);
+            document.body.removeChild(renderTarget);
+            setIsCapturing(false);
+        }
+    });
+
+  }, [mapRef, toast, isCapturing, activeBaseLayerId]);
 
 
   return (
@@ -666,7 +751,8 @@ export default function GeoMapperClient() {
             activeBaseLayerId={activeBaseLayerId}
             onChangeBaseLayer={handleChangeBaseLayer}
             onOpenStreetView={handleOpenStreetView}
-            onOpenCapturePanel={() => togglePanelMinimize('camera')}
+            onCaptureAndDownload={handleCaptureAndDownload}
+            isCapturing={isCapturing}
             onZoomToBoundingBox={zoomToBoundingBox}
             onFindSentinel2Footprints={layerManagerHook.findSentinel2FootprintsInCurrentView}
             onClearSentinel2Footprints={layerManagerHook.clearSentinel2FootprintsLayer}
@@ -797,19 +883,6 @@ export default function GeoMapperClient() {
             isAuthenticated={isGeeAuthenticated}
             style={{ top: `${panels.gee.position.y}px`, left: `${panels.gee.position.x}px`, zIndex: panels.gee.zIndex }}
           />
-        )}
-
-        {panels.camera && !panels.camera.isMinimized && (
-            <CameraPanel
-                panelRef={cameraPanelRef}
-                isCollapsed={panels.camera.isCollapsed}
-                onToggleCollapse={() => togglePanelCollapse('camera')}
-                onClosePanel={() => togglePanelMinimize('camera')}
-                onMouseDownHeader={(e) => handlePanelMouseDown(e, 'camera')}
-                mapRef={mapRef}
-                activeBaseLayerId={activeBaseLayerId}
-                style={{ top: `${panels.camera.position.y}px`, left: `${panels.camera.position.x}px`, zIndex: panels.camera.zIndex }}
-            />
         )}
 
         {panels.ai && !panels.ai.isMinimized && (

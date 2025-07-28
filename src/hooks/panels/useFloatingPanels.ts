@@ -3,7 +3,7 @@
 
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 
-type PanelId = 'layers' | 'tools' | 'legend' | 'attributes' | 'ai' | 'trello' | 'wfsLibrary' | 'help' | 'printComposer' | 'deasCatalog' | 'gee' | 'camera';
+type PanelId = 'layers' | 'tools' | 'legend' | 'attributes' | 'ai' | 'trello' | 'wfsLibrary' | 'help' | 'printComposer' | 'deasCatalog' | 'gee';
 
 interface PanelState {
   isMinimized: boolean;
@@ -62,8 +62,7 @@ export const useFloatingPanels = ({
     printComposer: printComposerPanelRef,
     deasCatalog: deasCatalogPanelRef,
     gee: geePanelRef,
-    camera: cameraPanelRef,
-  }), [attributesPanelRef, aiPanelRef, layersPanelRef, legendPanelRef, toolsPanelRef, trelloPanelRef, wfsLibraryPanelRef, helpPanelRef, printComposerPanelRef, deasCatalogPanelRef, geePanelRef, cameraPanelRef]);
+  }), [attributesPanelRef, aiPanelRef, layersPanelRef, legendPanelRef, toolsPanelRef, trelloPanelRef, wfsLibraryPanelRef, helpPanelRef, printComposerPanelRef, deasCatalogPanelRef, geePanelRef]);
   
   const [panels, setPanels] = useState<Record<PanelId, PanelState>>(() => {
     const initialX = panelPadding;
@@ -82,7 +81,6 @@ export const useFloatingPanels = ({
       attributes: { isMinimized: true, isCollapsed: false, position: { x: initialX + cascadeOffsetX * 6, y: initialY + cascadeOffsetY * 6 }, zIndex: initialZIndex },
       printComposer: { isMinimized: true, isCollapsed: false, position: { x: initialX + cascadeOffsetX * 7, y: initialY + cascadeOffsetY * 7 }, zIndex: initialZIndex },
       gee: { isMinimized: true, isCollapsed: false, position: { x: initialX + cascadeOffsetX * 8, y: initialY + cascadeOffsetY * 8 }, zIndex: initialZIndex },
-      camera: { isMinimized: true, isCollapsed: false, position: { x: initialX + cascadeOffsetX * 9, y: initialY + cascadeOffsetY * 9 }, zIndex: initialZIndex },
       ai: { isMinimized: false, isCollapsed: false, position: { x: -9999, y: panelPadding }, zIndex: initialZIndex + 3 }, // Positioned dynamically
       help: { isMinimized: true, isCollapsed: false, position: { x: -9999, y: panelPadding }, zIndex: initialZIndex }, // Positioned dynamically
     };

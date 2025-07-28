@@ -23,7 +23,8 @@ interface LayersPanelProps {
   activeBaseLayerId: string;
   onChangeBaseLayer: (id: string) => void;
   onOpenStreetView: () => void;
-  onOpenCapturePanel: () => void;
+  onCaptureAndDownload: () => void;
+  isCapturing: boolean;
 
   onZoomToBoundingBox: (bbox: [number, number, number, number]) => void;
 
@@ -44,7 +45,7 @@ interface LayersPanelProps {
 
 const LayersPanel: React.FC<LayersPanelProps> = ({
   panelRef, isCollapsed, onToggleCollapse, onClosePanel, onMouseDownHeader,
-  availableBaseLayers, activeBaseLayerId, onChangeBaseLayer, onOpenStreetView, onOpenCapturePanel,
+  availableBaseLayers, activeBaseLayerId, onChangeBaseLayer, onOpenStreetView, onCaptureAndDownload, isCapturing,
   onZoomToBoundingBox,
   onFindSentinel2Footprints, onClearSentinel2Footprints, isFindingSentinelFootprints,
   onFindLandsatFootprints, onClearLandsatFootprints, isFindingLandsatFootprints,
@@ -92,13 +93,14 @@ const LayersPanel: React.FC<LayersPanelProps> = ({
                 <StreetViewIcon className="h-5 w-5" />
             </Button>
             <Button
-                onClick={onOpenCapturePanel}
+                onClick={onCaptureAndDownload}
                 variant="outline"
                 size="icon"
                 className="h-8 w-8 flex-shrink-0 bg-black/20 hover:bg-black/40 border border-white/30 text-white/90"
-                title="Capturar imagen del mapa base"
+                title="Capturar imagen UHD del mapa base"
+                disabled={isCapturing}
             >
-                <Camera className="h-4 w-4" />
+              {isCapturing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
             </Button>
         </div>
 
