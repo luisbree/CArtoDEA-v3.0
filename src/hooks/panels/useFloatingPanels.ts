@@ -3,7 +3,7 @@
 
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 
-type PanelId = 'layers' | 'tools' | 'legend' | 'attributes' | 'ai' | 'trello' | 'wfsLibrary' | 'help' | 'printComposer' | 'deasCatalog' | 'gee';
+type PanelId = 'layers' | 'tools' | 'legend' | 'attributes' | 'ai' | 'trello' | 'wfsLibrary' | 'help' | 'printComposer' | 'deasCatalog' | 'gee' | 'camera';
 
 interface PanelState {
   isMinimized: boolean;
@@ -24,6 +24,7 @@ interface UseFloatingPanelsProps {
   printComposerPanelRef: React.RefObject<HTMLDivElement>;
   deasCatalogPanelRef: React.RefObject<HTMLDivElement>;
   geePanelRef: React.RefObject<HTMLDivElement>;
+  cameraPanelRef: React.RefObject<HTMLDivElement>;
   mapAreaRef: React.RefObject<HTMLDivElement>;
   panelWidth: number;
   panelPadding: number;
@@ -43,6 +44,7 @@ export const useFloatingPanels = ({
   printComposerPanelRef,
   deasCatalogPanelRef,
   geePanelRef,
+  cameraPanelRef,
   mapAreaRef,
   panelWidth,
   panelPadding
@@ -60,7 +62,8 @@ export const useFloatingPanels = ({
     printComposer: printComposerPanelRef,
     deasCatalog: deasCatalogPanelRef,
     gee: geePanelRef,
-  }), [attributesPanelRef, aiPanelRef, layersPanelRef, legendPanelRef, toolsPanelRef, trelloPanelRef, wfsLibraryPanelRef, helpPanelRef, printComposerPanelRef, deasCatalogPanelRef, geePanelRef]);
+    camera: cameraPanelRef,
+  }), [attributesPanelRef, aiPanelRef, layersPanelRef, legendPanelRef, toolsPanelRef, trelloPanelRef, wfsLibraryPanelRef, helpPanelRef, printComposerPanelRef, deasCatalogPanelRef, geePanelRef, cameraPanelRef]);
   
   const [panels, setPanels] = useState<Record<PanelId, PanelState>>(() => {
     const initialX = panelPadding;
@@ -79,6 +82,7 @@ export const useFloatingPanels = ({
       attributes: { isMinimized: true, isCollapsed: false, position: { x: initialX + cascadeOffsetX * 6, y: initialY + cascadeOffsetY * 6 }, zIndex: initialZIndex },
       printComposer: { isMinimized: true, isCollapsed: false, position: { x: initialX + cascadeOffsetX * 7, y: initialY + cascadeOffsetY * 7 }, zIndex: initialZIndex },
       gee: { isMinimized: true, isCollapsed: false, position: { x: initialX + cascadeOffsetX * 8, y: initialY + cascadeOffsetY * 8 }, zIndex: initialZIndex },
+      camera: { isMinimized: true, isCollapsed: false, position: { x: initialX + cascadeOffsetX * 9, y: initialY + cascadeOffsetY * 9 }, zIndex: initialZIndex },
       ai: { isMinimized: false, isCollapsed: false, position: { x: -9999, y: panelPadding }, zIndex: initialZIndex + 3 }, // Positioned dynamically
       help: { isMinimized: true, isCollapsed: false, position: { x: -9999, y: panelPadding }, zIndex: initialZIndex }, // Positioned dynamically
     };

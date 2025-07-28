@@ -27,6 +27,7 @@ import HelpPanel from '@/components/panels/HelpPanel';
 import PrintComposerPanel from '@/components/panels/PrintComposerPanel';
 import DeasCatalogPanel from '@/components/panels/DeasCatalogPanel';
 import GeeProcessingPanel from '@/components/panels/GeeProcessingPanel';
+import CameraPanel from '@/components/panels/CameraPanel';
 import WfsLoadingIndicator from '@/components/feedback/WfsLoadingIndicator';
 
 import { useOpenLayersMap } from '@/hooks/map-core/useOpenLayersMap';
@@ -65,7 +66,7 @@ const osmCategoryConfig: OSMCategoryConfig[] = [
   {
     id: 'bridges', name: 'OSM Puentes',
     overpassQueryFragment: (bboxStr) => `nwr[man_made="bridge"](${bboxStr});`,
-    style: new Style() // Transparent style
+    style: new Style({ stroke: new Stroke({ color: '#6c757d', width: 4 }) })
   },
   {
     id: 'admin_boundaries', name: 'OSM Límites Admin.',
@@ -94,7 +95,7 @@ const osmCategoryConfig: OSMCategoryConfig[] = [
   },
   {
     id: 'cultural_heritage', name: 'OSM Patrimonio Cultural',
-    overpassQueryFragment: (bboxStr) => `nwr[historic](${bboxStr});nwr[tourism~"^(museum|artwork)$"](${bboxStr});nwr[heritage](${bboxStr});`,
+    overpassQueryFragment: (bboxStr) => `nwr[historic](${bboxStr});nwr[heritage](${bboxStr});`,
     style: new Style({ image: new CircleStyle({ radius: 6, fill: new Fill({color: '#8d6e63'}), stroke: new Stroke({color: 'white', width: 1.5})})})
   },
 ];
@@ -115,6 +116,7 @@ const panelToggleConfigs = [
   { id: 'attributes', IconComponent: ListChecks, name: "Atributos" },
   { id: 'printComposer', IconComponent: Printer, name: "Impresión" },
   { id: 'gee', IconComponent: BrainCircuit, name: "Procesamiento GEE" },
+  { id: 'camera', IconComponent: Camera, name: "Captura" },
   { id: 'ai', IconComponent: Sparkles, name: "Asistente IA" },
   { id: 'help', IconComponent: LifeBuoy, name: "Ayuda" },
 ];
@@ -133,6 +135,7 @@ export default function GeoMapperClient() {
   const printComposerPanelRef = useRef<HTMLDivElement>(null);
   const deasCatalogPanelRef = useRef<HTMLDivElement>(null);
   const geePanelRef = useRef<HTMLDivElement>(null);
+  const cameraPanelRef = useRef<HTMLDivElement>(null);
 
   const { mapRef, mapElementRef, setMapInstanceAndElement, isMapReady, drawingSourceRef } = useOpenLayersMap();
   const { toast } = useToast();
@@ -149,6 +152,7 @@ export default function GeoMapperClient() {
     printComposerPanelRef,
     deasCatalogPanelRef,
     geePanelRef,
+    cameraPanelRef,
     mapAreaRef,
     panelWidth: PANEL_WIDTH,
     panelPadding: PANEL_PADDING,
@@ -662,6 +666,7 @@ export default function GeoMapperClient() {
             activeBaseLayerId={activeBaseLayerId}
             onChangeBaseLayer={handleChangeBaseLayer}
             onOpenStreetView={handleOpenStreetView}
+            onOpenCapturePanel={() => togglePanelMinimize('camera')}
             onZoomToBoundingBox={zoomToBoundingBox}
             onFindSentinel2Footprints={layerManagerHook.findSentinel2FootprintsInCurrentView}
             onClearSentinel2Footprints={layerManagerHook.clearSentinel2FootprintsLayer}
@@ -792,6 +797,19 @@ export default function GeoMapperClient() {
             isAuthenticated={isGeeAuthenticated}
             style={{ top: `${panels.gee.position.y}px`, left: `${panels.gee.position.x}px`, zIndex: panels.gee.zIndex }}
           />
+        )}
+
+        {panels.camera && !panels.camera.isMinimized && (
+            <CameraPanel
+                panelRef={cameraPanelRef}
+                isCollapsed={panels.camera.isCollapsed}
+                onToggleCollapse={() => togglePanelCollapse('camera')}
+                onClosePanel={() => togglePanelMinimize('camera')}
+                onMouseDownHeader={(e) => handlePanelMouseDown(e, 'camera')}
+                mapRef={mapRef}
+                activeBaseLayerId={activeBaseLayerId}
+                style={{ top: `${panels.camera.position.y}px`, left: `${panels.camera.position.x}px`, zIndex: panels.camera.zIndex }}
+            />
         )}
 
         {panels.ai && !panels.ai.isMinimized && (
