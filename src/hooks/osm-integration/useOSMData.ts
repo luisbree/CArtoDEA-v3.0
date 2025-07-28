@@ -78,8 +78,7 @@ export const useOSMData = ({ mapRef, drawingSourceRef, addLayer, osmCategoryConf
                 setIsFetchingOSM(false);
                 return;
             }
-
-            const buildSelector = (filter: CustomFilter) => {
+             const buildSelector = (filter: CustomFilter) => {
                 const values = filter.value.split(',').map(v => v.trim()).filter(v => v);
                 if (values.length > 1) {
                     const regexValue = `^(${values.join('|')})$`;
@@ -90,16 +89,9 @@ export const useOSMData = ({ mapRef, drawingSourceRef, addLayer, osmCategoryConf
                 return `["${filter.key}"]`;
             };
 
-            if (query.operator === 'AND') {
-                const firstSelector = buildSelector(validFilters[0]);
-                const otherSelectors = validFilters.slice(1).map(buildSelector).join('');
-                overpassQuery = `[out:json][timeout:60];nwr${firstSelector}${otherSelectors}${bboxStr};${recursivePart}${outPart}`;
-                layerName = `OSM: ${validFilters.map(f => f.key).join(' Y ')}`;
-            } else { // OR
-                const queryBody = validFilters.map(f => `nwr${buildSelector(f)}${bboxStr}`).join(';');
-                overpassQuery = `[out:json][timeout:60];(${queryBody});${recursivePart}${outPart}`;
-                layerName = `OSM: ${validFilters.map(f => f.key).join(' O ')}`;
-            }
+            const queryBody = validFilters.map(f => `nwr${buildSelector(f)}${bboxStr}`).join(';');
+            overpassQuery = `[out:json][timeout:60];(${queryBody});${recursivePart}${outPart}`;
+            layerName = `OSM: ${validFilters.map(f => f.key).join(', ')}`;
         }
         
         const response = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(overpassQuery)}`);
