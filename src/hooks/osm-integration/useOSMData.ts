@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useCallback } from 'react';
@@ -73,29 +74,42 @@ export const useOSMData = ({ mapRef, drawingSourceRef, addLayer, osmCategoryConf
     };
     
     try {
-        for (const categoryId of categoryIds) {
+        const queryFragments = categoryIds.map(categoryId => {
             const config = osmCategoryConfigs.find(c => c.id === categoryId);
-            if (!config) continue;
+            return config ? config.overpassQueryFragment(bboxStr) : '';
+        }).filter(Boolean).join('');
 
-            const queryFragment = config.overpassQueryFragment(bboxStr);
-             const overpassQuery = `[out:json][timeout:60];(${queryFragment});out geom;`;
-            
-            const features = await executeQuery(overpassQuery);
-            
-            if (features.length > 0) {
-                const vectorSource = new VectorSource({ features });
-                const catLayerName = `${config.name} (${features.length})`;
-                const newLayer = new VectorLayer({
-                    source: vectorSource,
-                    style: config.style,
-                    properties: { id: `osm-${config.id}-${nanoid()}`, name: catLayerName, type: 'osm' }
-                });
-                addLayer({ id: newLayer.get('id'), name: catLayerName, olLayer: newLayer, visible: true, opacity: 1, type: 'osm' });
-                toast({ description: `Capa "${catLayerName}" añadida.` });
-            } else {
-                toast({ description: `No se encontraron entidades para "${config.name}".` });
-            }
+        if (!queryFragments) {
+            toast({ description: "No se seleccionaron categorías válidas." });
+            setIsFetchingOSM(false);
+            return;
         }
+        
+        const overpassQuery = `[out:json][timeout:60];(${queryFragments});out geom;`;
+
+        const features = await executeQuery(overpassQuery);
+        
+        if (features.length > 0) {
+            // This approach adds all results into one layer. 
+            // A different approach would be to run one query per category to create one layer per category.
+            const catLayerName = `OSM: ${categoryIds.join(', ')} (${features.length})`;
+            const vectorSource = new VectorSource({ features });
+            const newLayer = new VectorLayer({
+                source: vectorSource,
+                // A generic style is needed if features from different categories are mixed.
+                style: new Style({
+                    stroke: new Stroke({ color: '#3a86ff', width: 2 }),
+                    fill: new Fill({ color: 'rgba(58,134,255,0.4)' }),
+                    image: new CircleStyle({ radius: 6, fill: new Fill({ color: '#3a86ff' })})
+                }),
+                properties: { id: `osm-${categoryIds.join('-')}-${nanoid()}`, name: catLayerName, type: 'osm' }
+            });
+            addLayer({ id: newLayer.get('id'), name: catLayerName, olLayer: newLayer, visible: true, opacity: 1, type: 'osm' });
+            toast({ description: `Capa "${catLayerName}" añadida.` });
+        } else {
+            toast({ description: `No se encontraron entidades para las categorías seleccionadas.` });
+        }
+
     } catch (error: any) {
       console.error("Error fetching OSM data:", error);
       toast({ description: `Error al obtener datos de OSM: ${error.message}`, variant: "destructive" });
