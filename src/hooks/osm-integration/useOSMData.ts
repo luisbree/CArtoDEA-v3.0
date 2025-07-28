@@ -17,6 +17,7 @@ import JSZip from 'jszip';
 import type Feature from 'ol/Feature';
 import type { Geometry } from 'ol/geom';
 import { Style, Fill, Stroke, Circle as CircleStyle } from 'ol/style';
+import osmtogeojson from 'osmtogeojson';
 
 
 interface UseOSMDataProps {
@@ -51,7 +52,7 @@ export const useOSMData = ({ mapRef, drawingSourceRef, addLayer, osmCategoryConf
     });
 
     const recursivePart = "(._;>;);";
-    const outPart = "out geom;";
+    const outPart = "out body;"; // Use "out body" to get full data for relations
 
     const executeQuery = async (overpassQuery: string): Promise<Feature<Geometry>[]> => {
         try {
@@ -61,41 +62,11 @@ export const useOSMData = ({ mapRef, drawingSourceRef, addLayer, osmCategoryConf
                 throw new Error(`Overpass API error: ${response.status} ${errorText}`);
             }
             const osmData = await response.json();
-             const geojsonFeatures = osmData.elements.map((element: any) => {
-                if (!element.type) return null;
+            
+            // Use osmtogeojson library to correctly handle complex geometries like relations
+            const geojsonData = osmtogeojson(osmData);
 
-                const properties = element.tags || {};
-                properties.osm_id = element.id;
-                properties.osm_type = element.type;
-                let geometry = null;
-
-                if (element.type === 'node' && element.lat !== undefined && element.lon !== undefined) {
-                    geometry = { type: 'Point', coordinates: [element.lon, element.lat] };
-                } else if (element.type === 'way' && element.geometry) {
-                    const coordinates = element.geometry.map((node: { lat: number, lon: number }) => [node.lon, node.lat]);
-                    if (coordinates.length >= 2) {
-                        const first = coordinates[0];
-                        const last = coordinates[coordinates.length - 1];
-                        if (coordinates.length >= 4 && first[0] === last[0] && first[1] === last[1]) {
-                            geometry = { type: 'Polygon', coordinates: [coordinates] };
-                        } else {
-                            geometry = { type: 'LineString', coordinates };
-                        }
-                    }
-                } else if (element.type === 'relation' && element.members) {
-                    // Try to use center point for relations if available, otherwise it will be skipped
-                    if (element.center) {
-                        geometry = { type: 'Point', coordinates: [element.center.lon, element.center.lat] };
-                    }
-                }
-
-                if (!geometry) return null;
-
-                return { type: 'Feature', id: `${element.type}/${element.id}`, properties, geometry };
-            }).filter(Boolean);
-
-            const osmDataAsGeoJSON = { type: 'FeatureCollection', features: geojsonFeatures };
-            const features = geojsonFormat.readFeatures(osmDataAsGeoJSON);
+            const features = geojsonFormat.readFeatures(geojsonData);
             features.forEach(f => f.setId(nanoid()));
             return features;
 
@@ -152,14 +123,14 @@ export const useOSMData = ({ mapRef, drawingSourceRef, addLayer, osmCategoryConf
                 const key = filter.key.trim();
                 if (values.length > 1) {
                     const regexValue = `^(${values.join('|')})$`;
-                    return `nwr["${key}"~"${regexValue}"](${bboxStr})`;
+                    return `nwr["${key}"~"${regexValue}"](${bboxStr});`;
                 } else if (values.length === 1 && values[0]) {
-                    return `nwr["${key}"="${values[0]}"](${bboxStr})`;
+                    return `nwr["${key}"="${values[0]}"](${bboxStr});`;
                 }
-                return `nwr["${key}"](${bboxStr})`;
+                return `nwr["${key}"](${bboxStr});`;
             };
             
-            const queryBody = validFilters.map(f => buildSelector(f)).join(';');
+            const queryBody = validFilters.map(f => buildSelector(f)).join('');
             const overpassQuery = `[out:json][timeout:60];(${queryBody});${recursivePart}${outPart}`;
             
             const allFeatures = await executeQuery(overpassQuery);
