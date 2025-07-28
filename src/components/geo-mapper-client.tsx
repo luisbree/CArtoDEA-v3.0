@@ -609,118 +609,61 @@ export default function GeoMapperClient() {
       toast({ description: 'El mapa no está listo.', variant: 'destructive' });
       return;
     }
-    if (isCapturing) return;
+    if (isCapturing) {
+      return;
+    }
 
     setIsCapturing(true);
-    toast({ description: 'Generando captura UHD...' });
+    toast({ description: 'Generando captura de mapa...' });
 
     const map = mapRef.current;
-    const view = map.getView();
-    const currentCenter = view.getCenter();
-    const currentResolution = view.getResolution();
-    const mapSize = map.getSize();
+    
+    map.once('rendercomplete', () => {
+        try {
+            const mapCanvas = document.createElement('canvas');
+            const size = map.getSize();
+            if (!size) {
+                throw new Error("Map size is not available.");
+            }
+            mapCanvas.width = size[0];
+            mapCanvas.height = size[1];
+            const mapContext = mapCanvas.getContext('2d', { willReadFrequently: true });
+            if (!mapContext) {
+                throw new Error("Could not get canvas context.");
+            }
+            
+            const canvases = map.getViewport().querySelectorAll('.ol-layer canvas, canvas.ol-layer');
+            Array.from(canvases).forEach(canvas => {
+                if (canvas instanceof HTMLCanvasElement && canvas.width > 0) {
+                    const opacity = parseFloat(canvas.style.opacity) || 1.0;
+                    mapContext.globalAlpha = opacity;
+                    mapContext.drawImage(canvas, 0, 0, canvas.width, canvas.height);
+                }
+            });
 
-    if (!currentCenter || !currentResolution || !mapSize) {
-      toast({
-        description: 'No se pudo obtener la vista actual del mapa.',
-        variant: 'destructive',
-      });
-      setIsCapturing(false);
-      return;
-    }
+            const dataUrl = mapCanvas.toDataURL('image/jpeg', 0.95);
 
-    const uhdSize = [3840, 2160];
-    const newResolution = (currentResolution * mapSize[0]) / uhdSize[0];
+            const link = document.createElement('a');
+            link.href = dataUrl;
+            link.download = `map_capture_${activeBaseLayerId}.jpeg`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
 
-    const captureTarget = document.createElement('div');
-    captureTarget.style.width = `${uhdSize[0]}px`;
-    captureTarget.style.height = `${uhdSize[1]}px`;
-    captureTarget.style.position = 'absolute';
-    captureTarget.style.left = '-9999px';
-    captureTarget.style.top = '-9999px';
-    document.body.appendChild(captureTarget);
-
-    const baseLayerDef = BASE_LAYER_DEFINITIONS.find(
-      (def) => def.id === activeBaseLayerId
-    );
-    if (!baseLayerDef) {
-      toast({
-        description: 'No se pudo encontrar la capa base activa.',
-        variant: 'destructive',
-      });
-      setIsCapturing(false);
-      document.body.removeChild(captureTarget);
-      return;
-    }
-
-    let originalOlLayer: Layer | undefined;
-    map.getLayers().forEach((layer) => {
-      if (layer.get('isBaseLayer') && layer.getVisible()) {
-        originalOlLayer = layer;
-      }
-    });
-
-    if (!originalOlLayer || !originalOlLayer.getSource()) {
-      toast({
-        description: 'La capa base original no se encuentra o no tiene fuente.',
-        variant: 'destructive',
-      });
-      setIsCapturing(false);
-      document.body.removeChild(captureTarget);
-      return;
-    }
-
-    const captureLayer = new TileLayer({
-      source: originalOlLayer.getSource() as TileSource,
-    });
-
-    // Apply visual effects to the capture layer directly
-    const originalPrerender = originalOlLayer.get('prerenderListener');
-    const originalPostrender = originalOlLayer.get('postrenderListener');
-    if (originalPrerender) captureLayer.on('prerender', originalPrerender);
-    if (originalPostrender) captureLayer.on('postrender', originalPostrender);
-
-
-    const captureMap = new OLMap({
-      target: captureTarget,
-      layers: [captureLayer],
-      view: new View({
-        center: currentCenter,
-        resolution: newResolution,
-        projection: view.getProjection(),
-      }),
-      controls: [],
-    });
-
-    captureMap.once('rendercomplete', () => {
-      try {
-        const mapCanvas = captureTarget.querySelector('canvas');
-        if (!mapCanvas) {
-          throw new Error('No se pudo encontrar el canvas para la captura.');
+            toast({ description: 'Captura completada.' });
+        } catch (e) {
+            console.error('Error capturing map:', e);
+            const errorMessage = e instanceof Error ? e.message : String(e);
+            toast({
+              description: `Error al generar la captura: ${errorMessage}`,
+              variant: 'destructive',
+            });
+        } finally {
+            setIsCapturing(false);
         }
-        
-        const dataUrl = mapCanvas.toDataURL('image/jpeg', 0.95);
-
-        const link = document.createElement('a');
-        link.href = dataUrl;
-        link.download = `map_capture_UHD_${activeBaseLayerId}.jpeg`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        toast({ description: 'Captura UHD completada.' });
-      } catch (e) {
-        console.error('Error capturing map:', e);
-        const errorMessage = e instanceof Error ? e.message : String(e);
-        toast({
-          description: `Error al generar la captura: ${errorMessage}`,
-          variant: 'destructive',
-        });
-      } finally {
-        captureMap.setTarget(undefined);
-        document.body.removeChild(captureTarget);
-        setIsCapturing(false);
-      }
     });
+
+    map.renderSync();
   }, [mapRef, activeBaseLayerId, toast, isCapturing]);
 
 
@@ -994,3 +937,5 @@ export default function GeoMapperClient() {
     </div>
   );
 }
+
+    
