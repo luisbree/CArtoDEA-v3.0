@@ -44,7 +44,6 @@ import type { OSMCategoryConfig, GeoServerDiscoveredLayer, BaseLayerOptionForSel
 import { chatWithMapAssistant, type MapAssistantOutput } from '@/ai/flows/find-layer-flow';
 import { searchTrelloCard } from '@/ai/flows/trello-actions';
 import { authenticateWithGee } from '@/ai/flows/gee-flow';
-import { StreetViewIcon } from './icons/StreetViewIcon';
 
 
 const osmCategoryConfig: OSMCategoryConfig[] = [
@@ -61,12 +60,12 @@ const osmCategoryConfig: OSMCategoryConfig[] = [
   {
     id: 'roads_paths', name: 'OSM Rutas y Caminos',
     overpassQueryFragment: (bboxStr) => `nwr[highway](${bboxStr});`,
-    style: new Style({ stroke: new Stroke({ color: '#adb5bd', width: 3 }) })
+    style: new Style({ stroke: new Stroke({ color: '#adb5bd', width: 2 }) })
   },
   {
     id: 'bridges', name: 'OSM Puentes',
     overpassQueryFragment: (bboxStr) => `nwr[man_made="bridge"](${bboxStr});`,
-    style: new Style() // Transparent style
+    style: new Style({ stroke: new Stroke({ color: '#808c99', width: 3 }) })
   },
   {
     id: 'admin_boundaries', name: 'OSM Límites Admin.',
@@ -90,12 +89,12 @@ const osmCategoryConfig: OSMCategoryConfig[] = [
   },
   {
     id: 'social_institutions', name: 'OSM Instituciones Sociales',
-    overpassQueryFragment: (bboxStr) => `nwr[amenity~"^(community_centre|social_facility)$"](${bboxStr});nwr[office="ngo"](${bboxStr});`,
+    overpassQueryFragment: (bboxStr) => `nwr[amenity~"^(community_centre|social_facility)$"](${bboxStr});nwr[office~"^(ngo|union)$"](${bboxStr});`,
     style: new Style({ image: new CircleStyle({ radius: 6, fill: new Fill({color: '#ff6b6b'}), stroke: new Stroke({color: 'white', width: 1.5})})})
   },
   {
     id: 'cultural_heritage', name: 'OSM Patrimonio Cultural',
-    overpassQueryFragment: (bboxStr) => `nwr[historic](${bboxStr});nwr[tourism~"^(museum|artwork)$"](${bboxStr});nwr[heritage](${bboxStr});`,
+    overpassQueryFragment: (bboxStr) => `nwr[historic](${bboxStr});nwr[heritage](${bboxStr});`,
     style: new Style({ image: new CircleStyle({ radius: 6, fill: new Fill({color: '#8d6e63'}), stroke: new Stroke({color: 'white', width: 1.5})})})
   },
 ];
@@ -662,7 +661,6 @@ export default function GeoMapperClient() {
             availableBaseLayers={availableBaseLayersForSelect}
             activeBaseLayerId={activeBaseLayerId}
             onChangeBaseLayer={handleChangeBaseLayer}
-            onOpenStreetView={handleOpenStreetView}
             onZoomToBoundingBox={zoomToBoundingBox}
             onFindSentinel2Footprints={layerManagerHook.findSentinel2FootprintsInCurrentView}
             onClearSentinel2Footprints={layerManagerHook.clearSentinel2FootprintsLayer}

@@ -21,102 +21,85 @@ export interface MapCaptureData {
   }
 }
 
-export const useMapCapture = ({ mapRef }: UseMapCaptureProps) => {
+export const useMapCapture = ({ mapRef, activeBaseLayerId }: UseMapCaptureProps) => {
   const { toast } = useToast();
   const [isCapturing, setIsCapturing] = useState(false);
 
-  const captureMapDataUrl = useCallback(async (): Promise<MapCaptureData | null> => {
-    if (!mapRef.current) {
-      toast({ description: 'El mapa no está listo para ser capturado.' });
-      return null;
-    }
-
-    setIsCapturing(true);
-
-    const map = mapRef.current;
-    
-    return new Promise((resolve) => {
-      map.once('rendercomplete', () => {
-        try {
-          const mapCanvas = document.createElement('canvas');
-          const size = map.getSize();
-          if (!size) {
-              throw new Error("Map size is not available.");
-          }
-          mapCanvas.width = size[0];
-          mapCanvas.height = size[1];
-          const mapContext = mapCanvas.getContext('2d');
-          if (!mapContext) {
-              throw new Error("Could not get canvas context.");
-          }
-
-          Array.from(map.getViewport().querySelectorAll('.ol-layer canvas')).forEach(canvas => {
-              if (canvas instanceof HTMLCanvasElement) {
-                  if (canvas.width > 0 && canvas.height > 0) {
-                    const opacity = parseFloat(canvas.style.opacity);
-                    mapContext.globalAlpha = isNaN(opacity) ? 1 : opacity;
-                    const transform = canvas.style.transform;
-                    const matrix = new DOMMatrix(transform);
-                    mapContext.setTransform(matrix);
-                    mapContext.drawImage(canvas, 0, 0);
+  const captureMapDataUrl = useCallback(async (
+    outputType: 'jpeg-full' | 'jpeg-red' | 'jpeg-green' | 'jpeg-blue' = 'jpeg-full'
+  ): Promise<string | null> => {
+      if (!mapRef.current) {
+          toast({ description: 'El mapa no está listo para ser capturado.' });
+          return null;
+      }
+  
+      // Only allow capture if the satellite layer is active
+      if (activeBaseLayerId !== 'esri-satellite') {
+          toast({ description: 'La captura de bandas de color solo está disponible para la capa base "ESRI Satelital".', variant: 'destructive' });
+          return null;
+      }
+  
+      setIsCapturing(true);
+      toast({ description: `Capturando imagen... (${outputType})` });
+  
+      const map = mapRef.current;
+  
+      return new Promise((resolve) => {
+          map.once('rendercomplete', () => {
+              try {
+                  const mapCanvas = document.createElement('canvas');
+                  const size = map.getSize();
+                  if (!size) {
+                      throw new Error("Map size is not available.");
                   }
+                  mapCanvas.width = size[0];
+                  mapCanvas.height = size[1];
+                  const mapContext = mapCanvas.getContext('2d');
+                  if (!mapContext) {
+                      throw new Error("Could not get canvas context.");
+                  }
+  
+                  // Find the ESRI satellite canvas specifically
+                  const esriCanvas = Array.from(map.getViewport().querySelectorAll('.ol-layer canvas')).find(c => {
+                      const layer = map.getLayers().getArray().find(l => l.getSource() === (c as any).__ol_source_key);
+                      return layer && layer.get('baseLayerId') === 'esri-satellite';
+                  }) as HTMLCanvasElement | undefined;
+  
+                  if (!esriCanvas || esriCanvas.width === 0 || esriCanvas.height === 0) {
+                      throw new Error('No se encontró el lienzo de la capa satelital de ESRI o está vacío.');
+                  }
+  
+                  mapContext.drawImage(esriCanvas, 0, 0, mapCanvas.width, mapCanvas.height);
+  
+                  if (outputType !== 'jpeg-full') {
+                      const imageData = mapContext.getImageData(0, 0, mapCanvas.width, mapCanvas.height);
+                      const data = imageData.data;
+                      for (let i = 0; i < data.length; i += 4) {
+                          let grayValue = 0;
+                          if (outputType === 'jpeg-red') grayValue = data[i];     // Red
+                          if (outputType === 'jpeg-green') grayValue = data[i + 1]; // Green
+                          if (outputType === 'jpeg-blue') grayValue = data[i + 2];  // Blue
+                          data[i] = grayValue;
+                          data[i + 1] = grayValue;
+                          data[i + 2] = grayValue;
+                      }
+                      mapContext.putImageData(imageData, 0, 0);
+                  }
+  
+                  const dataUrl = mapCanvas.toDataURL('image/jpeg', 0.95);
+                  resolve(dataUrl);
+              } catch (error) {
+                  console.error('Error capturing map:', error);
+                  toast({ description: `Error al capturar el mapa: ${error instanceof Error ? error.message : String(error)}`, variant: "destructive" });
+                  resolve(null);
+              } finally {
+                  setIsCapturing(false);
               }
           });
-          
-          mapContext.setTransform(1, 0, 0, 1, 0, 0);
-          
-          const imageUrl = mapCanvas.toDataURL('image/jpeg', 0.9);
-
-          const view = map.getView();
-          const resolution = view.getResolution();
-          const projection = view.getProjection();
-
-          if (!resolution || !projection) {
-              throw new Error("Map view is not ready for scale calculation");
-          }
-
-          const units = projection.getUnits();
-          // We assume meters for web mercator
-          if (units !== 'm') {
-              console.warn("Scale bar is only supported for projections with meters as units.");
-          }
-
-          const maxWidthInPixels = 100; // Desired max width of the scale bar
-          const maxDistanceInMapUnits = maxWidthInPixels * resolution;
-          
-          const niceNumbers = [5, 2, 1];
-          const exponent = Math.floor(Math.log10(maxDistanceInMapUnits));
-          const powerOf10 = Math.pow(10, exponent);
-          const residual = maxDistanceInMapUnits / powerOf10;
-          const niceResidual = niceNumbers.find(n => n <= residual) || 1;
-          const niceDistance = niceResidual * powerOf10;
-
-          const distanceLabel = niceDistance >= 1000 ? `${niceDistance / 1000} km` : `${niceDistance} m`;
-          const barWidth = niceDistance / resolution;
-          
-          const scale = {
-              barWidth,
-              text: distanceLabel
-          };
-          
-          const mapExtent = view.calculateExtent(size);
-          const extent4326 = transformExtent(mapExtent, view.getProjection(), 'EPSG:4326') as Extent;
-
-          resolve({ image: imageUrl, extent: extent4326, scale });
-
-        } catch (error) {
-          console.error('Error capturing map:', error);
-          toast({ description: `Error al capturar el mapa: ${error instanceof Error ? error.message : String(error)}` });
-          resolve(null);
-        } finally {
-            setIsCapturing(false);
-        }
+          map.renderSync();
       });
-      map.renderSync();
-    });
-
-  }, [mapRef, toast]);
-
+  }, [mapRef, toast, activeBaseLayerId]);
+  
   return {
     captureMapDataUrl,
     isCapturing,
