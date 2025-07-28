@@ -52,7 +52,7 @@ export const useOSMData = ({ mapRef, drawingSourceRef, addLayer, osmCategoryConf
     });
 
     const recursivePart = "(._;>;);";
-    const outPart = "out body;"; // Use "out body" to get full data for relations
+    const outPart = "out geom;";
 
     const executeQuery = async (overpassQuery: string): Promise<Feature<Geometry>[]> => {
         try {
@@ -63,7 +63,6 @@ export const useOSMData = ({ mapRef, drawingSourceRef, addLayer, osmCategoryConf
             }
             const osmData = await response.json();
             
-            // Use osmtogeojson library to correctly handle complex geometries like relations
             const geojsonData = osmtogeojson(osmData);
 
             const features = geojsonFormat.readFeatures(geojsonData);
@@ -72,7 +71,7 @@ export const useOSMData = ({ mapRef, drawingSourceRef, addLayer, osmCategoryConf
 
         } catch (error) {
             console.error("Overpass query failed:", error);
-            throw error; // Re-throw to be caught by the main try-catch block
+            throw error;
         }
     };
     
@@ -108,7 +107,6 @@ export const useOSMData = ({ mapRef, drawingSourceRef, addLayer, osmCategoryConf
                     toast({ description: `No se encontraron entidades para "${config.name}".` });
                 }
             }
-
         } else { // Custom query
             toast({ description: 'Realizando búsqueda personalizada en OSM...' });
             const validFilters = query.filters.filter(f => f.key.trim() !== '');
@@ -117,21 +115,22 @@ export const useOSMData = ({ mapRef, drawingSourceRef, addLayer, osmCategoryConf
                 setIsFetchingOSM(false);
                 return;
             }
-
+            
             const buildSelector = (filter: CustomFilter) => {
                 const values = filter.value.split(',').map(v => v.trim()).filter(v => v);
                 const key = filter.key.trim();
                 if (values.length > 1) {
                     const regexValue = `^(${values.join('|')})$`;
-                    return `nwr["${key}"~"${regexValue}"](${bboxStr});`;
+                    return `nwr["${key}"~"${regexValue}"](${bboxStr})`;
                 } else if (values.length === 1 && values[0]) {
-                    return `nwr["${key}"="${values[0]}"](${bboxStr});`;
+                    return `nwr["${key}"="${values[0]}"](${bboxStr})`;
                 }
-                return `nwr["${key}"](${bboxStr});`;
+                return `nwr["${key}"](${bboxStr})`;
             };
-            
-            const queryBody = validFilters.map(f => buildSelector(f)).join('');
-            const overpassQuery = `[out:json][timeout:60];(${queryBody});${recursivePart}${outPart}`;
+
+            const queryFragments = validFilters.map(f => buildSelector(f));
+            const combinedFragments = queryFragments.join(';'); // Join fragments with a semicolon for OR logic
+            const overpassQuery = `[out:json][timeout:60];(${combinedFragments});${recursivePart}${outPart}`;
             
             const allFeatures = await executeQuery(overpassQuery);
             
