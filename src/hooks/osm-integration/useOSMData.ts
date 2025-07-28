@@ -52,7 +52,7 @@ export const useOSMData = ({ mapRef, drawingSourceRef, addLayer, osmCategoryConf
     });
 
     const recursivePart = "(._;>;);";
-    const outPart = "out geom;";
+    const outPart = "out body;";
 
     const executeQuery = async (overpassQuery: string): Promise<Feature<Geometry>[]> => {
         try {
@@ -89,7 +89,7 @@ export const useOSMData = ({ mapRef, drawingSourceRef, addLayer, osmCategoryConf
                 if (!config) continue;
 
                 const queryFragment = config.overpassQueryFragment(bboxStr);
-                const overpassQuery = `[out:json][timeout:60];(${queryFragment});${recursivePart}${outPart}`;
+                const overpassQuery = `[out:json][timeout:60];${queryFragment}${recursivePart}${outPart}`;
                 
                 const features = await executeQuery(overpassQuery);
                 
@@ -121,16 +121,15 @@ export const useOSMData = ({ mapRef, drawingSourceRef, addLayer, osmCategoryConf
                 const key = filter.key.trim();
                 if (values.length > 1) {
                     const regexValue = `^(${values.join('|')})$`;
-                    return `nwr["${key}"~"${regexValue}"](${bboxStr})`;
+                    return `nwr["${key}"~"${regexValue}"](${bboxStr});`;
                 } else if (values.length === 1 && values[0]) {
-                    return `nwr["${key}"="${values[0]}"](${bboxStr})`;
+                    return `nwr["${key}"="${values[0]}"](${bboxStr});`;
                 }
-                return `nwr["${key}"](${bboxStr})`;
+                return `nwr["${key}"](${bboxStr});`;
             };
 
-            const queryFragments = validFilters.map(f => buildSelector(f));
-            const combinedFragments = queryFragments.join(';'); // Join fragments with a semicolon for OR logic
-            const overpassQuery = `[out:json][timeout:60];(${combinedFragments});${recursivePart}${outPart}`;
+            const queryFragments = validFilters.map(f => buildSelector(f)).join('');
+            const overpassQuery = `[out:json][timeout:60];(${queryFragments});${recursivePart}${outPart}`;
             
             const allFeatures = await executeQuery(overpassQuery);
             
@@ -290,3 +289,5 @@ export const useOSMData = ({ mapRef, drawingSourceRef, addLayer, osmCategoryConf
     handleDownloadOSMLayers: handleDownloadOSMLayers,
   };
 };
+
+    
