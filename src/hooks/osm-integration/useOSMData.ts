@@ -79,10 +79,8 @@ export const useOSMData = ({ mapRef, drawingSourceRef, addLayer, osmCategoryConf
 
             const queryFragment = config.overpassQueryFragment(bboxStr);
              const overpassQuery = `[out:json][timeout:60];
-                (
-                  ${queryFragment}
-                );
-                out geom;`;
+${queryFragment};
+out geom;`;
             
             const features = await executeQuery(overpassQuery);
             
