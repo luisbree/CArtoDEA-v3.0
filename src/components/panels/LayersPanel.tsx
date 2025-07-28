@@ -21,6 +21,7 @@ interface LayersPanelProps {
   availableBaseLayers: BaseLayerOptionForSelect[];
   activeBaseLayerId: string;
   onChangeBaseLayer: (id: string) => void;
+  onOpenStreetView: () => void;
 
   onZoomToBoundingBox: (bbox: [number, number, number, number]) => void;
 
@@ -41,7 +42,7 @@ interface LayersPanelProps {
 
 const LayersPanel: React.FC<LayersPanelProps> = ({
   panelRef, isCollapsed, onToggleCollapse, onClosePanel, onMouseDownHeader,
-  availableBaseLayers, activeBaseLayerId, onChangeBaseLayer,
+  availableBaseLayers, activeBaseLayerId, onChangeBaseLayer, onOpenStreetView,
   onZoomToBoundingBox,
   onFindSentinel2Footprints, onClearSentinel2Footprints, isFindingSentinelFootprints,
   onFindLandsatFootprints, onClearLandsatFootprints, isFindingLandsatFootprints,
@@ -80,9 +81,7 @@ const LayersPanel: React.FC<LayersPanelProps> = ({
                 onChangeBaseLayer={onChangeBaseLayer}
             />
             <Button
-                onClick={() => {
-                  console.log("Street View button clicked");
-                }}
+                onClick={onOpenStreetView}
                 variant="outline"
                 size="icon"
                 className="h-8 w-8 flex-shrink-0 bg-black/20 hover:bg-black/40 border border-white/30 text-white/90"
