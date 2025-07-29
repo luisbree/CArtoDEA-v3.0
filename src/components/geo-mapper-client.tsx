@@ -604,7 +604,7 @@ export default function GeoMapperClient() {
     }
   }, [mapRef, toast]);
   
-  const handleCaptureAndDownload = useCallback(async () => {
+  const handleCaptureAndDownload = useCallback(() => {
     if (!mapRef.current) {
       toast({ description: 'El mapa no está listo.', variant: 'destructive' });
       return;
