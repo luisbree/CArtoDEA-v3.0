@@ -612,57 +612,57 @@ export default function GeoMapperClient() {
     if (isCapturing) {
       return;
     }
-
+  
     setIsCapturing(true);
     toast({ description: 'Generando captura de mapa...' });
-
+  
     const map = mapRef.current;
-    
+  
     map.once('rendercomplete', () => {
-        try {
-            const mapCanvas = document.createElement('canvas');
-            const size = map.getSize();
-            if (!size) {
-                throw new Error("Map size is not available.");
-            }
-            mapCanvas.width = size[0];
-            mapCanvas.height = size[1];
-            const mapContext = mapCanvas.getContext('2d', { willReadFrequently: true });
-            if (!mapContext) {
-                throw new Error("Could not get canvas context.");
-            }
-            
-            const canvases = map.getViewport().querySelectorAll('.ol-layer canvas, canvas.ol-layer');
-            Array.from(canvases).forEach(canvas => {
-                if (canvas instanceof HTMLCanvasElement && canvas.width > 0) {
-                    const opacity = parseFloat(canvas.style.opacity) || 1.0;
-                    mapContext.globalAlpha = opacity;
-                    mapContext.drawImage(canvas, 0, 0, canvas.width, canvas.height);
-                }
-            });
-
-            const dataUrl = mapCanvas.toDataURL('image/jpeg', 0.95);
-
-            const link = document.createElement('a');
-            link.href = dataUrl;
-            link.download = `map_capture_${activeBaseLayerId}.jpeg`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-
-            toast({ description: 'Captura completada.' });
-        } catch (e) {
-            console.error('Error capturing map:', e);
-            const errorMessage = e instanceof Error ? e.message : String(e);
-            toast({
-              description: `Error al generar la captura: ${errorMessage}`,
-              variant: 'destructive',
-            });
-        } finally {
-            setIsCapturing(false);
+      try {
+        const mapCanvas = document.createElement('canvas');
+        const size = map.getSize();
+        if (!size) {
+          throw new Error("Map size is not available.");
         }
+        mapCanvas.width = size[0];
+        mapCanvas.height = size[1];
+        const mapContext = mapCanvas.getContext('2d', { willReadFrequently: true });
+        if (!mapContext) {
+          throw new Error("Could not get canvas context.");
+        }
+  
+        const canvases = map.getViewport().querySelectorAll('.ol-layer canvas, canvas.ol-layer');
+        Array.from(canvases).forEach(canvas => {
+          if (canvas instanceof HTMLCanvasElement && canvas.width > 0) {
+            const opacity = parseFloat(canvas.style.opacity) || 1.0;
+            mapContext.globalAlpha = opacity;
+            mapContext.drawImage(canvas, 0, 0, canvas.width, canvas.height);
+          }
+        });
+  
+        const dataUrl = mapCanvas.toDataURL('image/jpeg', 0.95);
+  
+        const link = document.createElement('a');
+        link.href = dataUrl;
+        link.download = `map_capture_${activeBaseLayerId}.jpeg`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+  
+        toast({ description: 'Captura completada.' });
+      } catch (e) {
+        console.error('Error capturing map:', e);
+        const errorMessage = e instanceof Error ? e.message : String(e);
+        toast({
+          description: `Error al generar la captura: ${errorMessage}`,
+          variant: 'destructive',
+        });
+      } finally {
+        setIsCapturing(false);
+      }
     });
-
+  
     map.renderSync();
   }, [mapRef, activeBaseLayerId, toast, isCapturing]);
 
@@ -937,5 +937,3 @@ export default function GeoMapperClient() {
     </div>
   );
 }
-
-    
