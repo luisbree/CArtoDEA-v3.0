@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { MapPin, Database, Wrench, ListTree, ListChecks, Sparkles, ClipboardCheck, Library, LifeBuoy, Printer, Server, BrainCircuit, Camera } from 'lucide-react';
+import { MapPin, Database, Wrench, ListTree, ListChecks, Sparkles, ClipboardCheck, Library, LifeBuoy, Printer, Server, BrainCircuit, Camera, Loader2, SlidersHorizontal } from 'lucide-react';
 import { Style, Fill, Stroke, Circle as CircleStyle } from 'ol/style';
 import { transform, transformExtent } from 'ol/proj';
 import type { Extent } from 'ol/extent';
@@ -13,6 +13,11 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Map as OLMap, View } from 'ol';
 import TileLayer from 'ol/layer/Tile';
 import type Layer from 'ol/layer/Layer';
@@ -33,6 +38,9 @@ import DeasCatalogPanel from '@/components/panels/DeasCatalogPanel';
 import GeeProcessingPanel from '@/components/panels/GeeProcessingPanel';
 import WfsLoadingIndicator from '@/components/feedback/WfsLoadingIndicator';
 import LocationSearch from '@/components/location-search/LocationSearch';
+import BaseLayerSelector from '@/components/layer-manager/BaseLayerSelector';
+import BaseLayerControls from '@/components/layer-manager/BaseLayerControls';
+import { StreetViewIcon } from '@/components/icons/StreetViewIcon';
 
 
 import { useOpenLayersMap } from '@/hooks/map-core/useOpenLayersMap';
@@ -126,7 +134,6 @@ const panelToggleConfigs = [
   { id: 'legend', IconComponent: ListTree, name: "Capas en Mapa" },
   { id: 'deasCatalog', IconComponent: Server, name: "Capas Predefinidas" },
   { id: 'wfsLibrary', IconComponent: Library, name: "Biblioteca de Servidores" },
-  { id: 'layers', IconComponent: Database, name: "Datos y Vista" },
   { id: 'tools', IconComponent: Wrench, name: "Herramientas" },
   { id: 'trello', IconComponent: ClipboardCheck, name: "Trello" },
   { id: 'attributes', IconComponent: ListChecks, name: "Atributos" },
@@ -723,8 +730,53 @@ export default function GeoMapperClient() {
         </div>
       </header>
 
-      <div className="bg-gray-700/90 backdrop-blur-sm shadow-md p-2 z-20">
+      <div className="bg-gray-700/90 backdrop-blur-sm shadow-md p-2 z-20 flex items-center justify-between gap-4">
         <LocationSearch onLocationSelect={handleLocationSelection} className="max-w-sm" />
+        <div className="flex items-center gap-2">
+            <BaseLayerSelector
+                availableBaseLayers={availableBaseLayersForSelect}
+                activeBaseLayerId={activeBaseLayerId}
+                onChangeBaseLayer={handleChangeBaseLayer}
+            />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8 flex-shrink-0 bg-black/20 hover:bg-black/40 border border-white/30 text-white/90"
+                    title="Ajustes de la capa base"
+                >
+                    <SlidersHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                  className="bg-gray-700/90 text-white border-gray-600 backdrop-blur-sm"
+                   onCloseAutoFocus={(e) => e.preventDefault()}
+              >
+                  <BaseLayerControls settings={baseLayerSettings} onChange={handleBaseLayerSettingsChange} />
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <Button
+                onClick={handleOpenStreetView}
+                variant="outline"
+                size="icon"
+                className="h-8 w-8 flex-shrink-0 bg-black/20 hover:bg-black/40 border border-white/30 text-white/90"
+                title="Abrir Google Street View en la ubicación actual"
+            >
+                <StreetViewIcon className="h-5 w-5" />
+            </Button>
+            <Button
+                onClick={handleCaptureAndDownload}
+                variant="outline"
+                size="icon"
+                className="h-8 w-8 flex-shrink-0 bg-black/20 hover:bg-black/40 border border-white/30 text-white/90"
+                title="Capturar imagen UHD del mapa base"
+                disabled={isCapturing}
+            >
+              {isCapturing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
+            </Button>
+        </div>
       </div>
 
       <div ref={mapAreaRef} className="relative flex-1 overflow-visible">
@@ -741,25 +793,6 @@ export default function GeoMapperClient() {
         </div>
 
         <WfsLoadingIndicator isVisible={isWfsLoading || wfsLibraryHook.isLoading} />
-
-        {panels.layers && !panels.layers.isMinimized && (
-          <LayersPanel
-            panelRef={layersPanelRef}
-            isCollapsed={panels.layers.isCollapsed}
-            onToggleCollapse={() => togglePanelCollapse('layers')}
-            onClosePanel={() => togglePanelMinimize('layers')}
-            onMouseDownHeader={(e) => handlePanelMouseDown(e, 'layers')}
-            availableBaseLayers={availableBaseLayersForSelect}
-            activeBaseLayerId={activeBaseLayerId}
-            onChangeBaseLayer={handleChangeBaseLayer}
-            onOpenStreetView={handleOpenStreetView}
-            onCaptureAndDownload={handleCaptureAndDownload}
-            isCapturing={isCapturing}
-            baseLayerSettings={baseLayerSettings}
-            onBaseLayerSettingsChange={handleBaseLayerSettingsChange}
-            style={{ top: `${panels.layers.position.y}px`, left: `${panels.layers.position.x}px`, zIndex: panels.layers.zIndex }}
-          />
-        )}
 
         {panels.deasCatalog && !panels.deasCatalog.isMinimized && (
             <DeasCatalogPanel
