@@ -4,9 +4,8 @@
 import React from 'react';
 import DraggablePanel from './DraggablePanel';
 import BaseLayerSelector from '@/components/layer-manager/BaseLayerSelector';
-import LocationSearch from '@/components/location-search/LocationSearch';
 import { Button } from '@/components/ui/button';
-import type { BaseLayerOptionForSelect, NominatimResult, BaseLayerSettings } from '@/lib/types'; 
+import type { BaseLayerOptionForSelect, BaseLayerSettings } from '@/lib/types'; 
 import { Database, Loader2, Camera, SlidersHorizontal } from 'lucide-react';
 import BaseLayerControls from '../layer-manager/BaseLayerControls';
 import { StreetViewIcon } from '@/components/icons/StreetViewIcon';
@@ -29,9 +28,6 @@ interface LayersPanelProps {
   onOpenStreetView: () => void;
   onCaptureAndDownload: () => void;
   isCapturing: boolean;
-
-  onZoomToBoundingBox: (bbox: [number, number, number, number]) => void;
-
   baseLayerSettings: BaseLayerSettings;
   onBaseLayerSettingsChange: (newSettings: Partial<BaseLayerSettings>) => void;
 
@@ -42,15 +38,9 @@ interface LayersPanelProps {
 const LayersPanel: React.FC<LayersPanelProps> = ({
   panelRef, isCollapsed, onToggleCollapse, onClosePanel, onMouseDownHeader,
   availableBaseLayers, activeBaseLayerId, onChangeBaseLayer, onOpenStreetView, onCaptureAndDownload, isCapturing,
-  onZoomToBoundingBox,
   baseLayerSettings, onBaseLayerSettingsChange,
   style, 
 }) => {
-  
-  const handleLocationSelection = (location: NominatimResult) => {
-    const [sLat, nLat, wLon, eLon] = location.boundingbox.map(coord => parseFloat(coord));
-    onZoomToBoundingBox([wLon, sLat, eLon, nLat]);
-  };
   
   return (
     <DraggablePanel
@@ -68,9 +58,6 @@ const LayersPanel: React.FC<LayersPanelProps> = ({
       overflowY='visible'
     >
       <div className="space-y-3"> 
-        
-        <LocationSearch onLocationSelect={handleLocationSelection} />
-        
         <div className="flex items-center gap-2">
             <BaseLayerSelector
                 availableBaseLayers={availableBaseLayers}

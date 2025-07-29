@@ -32,6 +32,8 @@ import PrintComposerPanel from '@/components/panels/PrintComposerPanel';
 import DeasCatalogPanel from '@/components/panels/DeasCatalogPanel';
 import GeeProcessingPanel from '@/components/panels/GeeProcessingPanel';
 import WfsLoadingIndicator from '@/components/feedback/WfsLoadingIndicator';
+import LocationSearch from '@/components/location-search/LocationSearch';
+
 
 import { useOpenLayersMap } from '@/hooks/map-core/useOpenLayersMap';
 import { useLayerManager } from '@/hooks/layer-manager/useLayerManager';
@@ -44,7 +46,7 @@ import { useMapCapture, type MapCaptureData } from '@/hooks/map-tools/useMapCapt
 import { useWfsLibrary } from '@/hooks/wfs-library/useWfsLibrary';
 import { useToast } from "@/hooks/use-toast";
 
-import type { OSMCategoryConfig, GeoServerDiscoveredLayer, BaseLayerOptionForSelect, MapLayer, ChatMessage, BaseLayerSettings } from '@/lib/types';
+import type { OSMCategoryConfig, GeoServerDiscoveredLayer, BaseLayerOptionForSelect, MapLayer, ChatMessage, BaseLayerSettings, NominatimResult } from '@/lib/types';
 import { chatWithMapAssistant, type MapAssistantOutput } from '@/ai/flows/find-layer-flow';
 import { searchTrelloCard } from '@/ai/flows/trello-actions';
 import { authenticateWithGee } from '@/ai/flows/gee-flow';
@@ -400,6 +402,11 @@ export default function GeoMapperClient() {
         onZoomComplete?.(false);
     }
   }, [mapRef, toast]);
+  
+  const handleLocationSelection = useCallback((location: NominatimResult) => {
+      const [sLat, nLat, wLon, eLon] = location.boundingbox.map(coord => parseFloat(coord));
+      zoomToBoundingBox([wLon, sLat, eLon, nLat]);
+  }, [zoomToBoundingBox]);
 
   const handleAiAction = useCallback((action: MapAssistantOutput) => {
     if (action.response) {
@@ -715,6 +722,11 @@ export default function GeoMapperClient() {
           </TooltipProvider>
         </div>
       </header>
+
+      <div className="bg-gray-700/90 backdrop-blur-sm shadow-md p-2 z-20">
+        <LocationSearch onLocationSelect={handleLocationSelection} className="max-w-md mx-auto" />
+      </div>
+
       <div ref={mapAreaRef} className="relative flex-1 overflow-visible">
         <MapView
           setMapInstanceAndElement={setMapInstanceAndElement}
@@ -743,13 +755,6 @@ export default function GeoMapperClient() {
             onOpenStreetView={handleOpenStreetView}
             onCaptureAndDownload={handleCaptureAndDownload}
             isCapturing={isCapturing}
-            onZoomToBoundingBox={zoomToBoundingBox}
-            onFindSentinel2Footprints={layerManagerHook.findSentinel2FootprintsInCurrentView}
-            onClearSentinel2Footprints={layerManagerHook.clearSentinel2FootprintsLayer}
-            isFindingSentinelFootprints={layerManagerHook.isFindingSentinelFootprints}
-            onFindLandsatFootprints={layerManagerHook.findLandsatFootprintsInCurrentView}
-            onClearLandsatFootprints={layerManagerHook.clearLandsatFootprintsLayer}
-            isFindingLandsatFootprints={layerManagerHook.isFindingLandsatFootprints}
             baseLayerSettings={baseLayerSettings}
             onBaseLayerSettingsChange={handleBaseLayerSettingsChange}
             style={{ top: `${panels.layers.position.y}px`, left: `${panels.layers.position.x}px`, zIndex: panels.layers.zIndex }}
