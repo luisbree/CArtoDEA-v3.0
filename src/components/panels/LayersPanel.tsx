@@ -5,12 +5,16 @@ import React from 'react';
 import DraggablePanel from './DraggablePanel';
 import BaseLayerSelector from '@/components/layer-manager/BaseLayerSelector';
 import LocationSearch from '@/components/location-search/LocationSearch';
-import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
 import type { BaseLayerOptionForSelect, NominatimResult, BaseLayerSettings } from '@/lib/types'; 
-import { Database, Search, ImageUp, ImageOff, Loader2, Camera } from 'lucide-react';
+import { Database, Loader2, Camera, SlidersHorizontal } from 'lucide-react';
 import BaseLayerControls from '../layer-manager/BaseLayerControls';
 import { StreetViewIcon } from '@/components/icons/StreetViewIcon';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface LayersPanelProps {
   panelRef: React.RefObject<HTMLDivElement>;
@@ -28,14 +32,6 @@ interface LayersPanelProps {
 
   onZoomToBoundingBox: (bbox: [number, number, number, number]) => void;
 
-  onFindSentinel2Footprints: (dateRange?: { startDate?: string, completionDate?: string }) => void;
-  onClearSentinel2Footprints: () => void;
-  isFindingSentinelFootprints: boolean; 
-
-  onFindLandsatFootprints: (dateRange?: { startDate?: string, completionDate?: string }) => void;
-  onClearLandsatFootprints: () => void;
-  isFindingLandsatFootprints: boolean;
-
   baseLayerSettings: BaseLayerSettings;
   onBaseLayerSettingsChange: (newSettings: Partial<BaseLayerSettings>) => void;
 
@@ -47,8 +43,6 @@ const LayersPanel: React.FC<LayersPanelProps> = ({
   panelRef, isCollapsed, onToggleCollapse, onClosePanel, onMouseDownHeader,
   availableBaseLayers, activeBaseLayerId, onChangeBaseLayer, onOpenStreetView, onCaptureAndDownload, isCapturing,
   onZoomToBoundingBox,
-  onFindSentinel2Footprints, onClearSentinel2Footprints, isFindingSentinelFootprints,
-  onFindLandsatFootprints, onClearLandsatFootprints, isFindingLandsatFootprints,
   baseLayerSettings, onBaseLayerSettingsChange,
   style, 
 }) => {
@@ -83,6 +77,25 @@ const LayersPanel: React.FC<LayersPanelProps> = ({
                 activeBaseLayerId={activeBaseLayerId}
                 onChangeBaseLayer={onChangeBaseLayer}
             />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8 flex-shrink-0 bg-black/20 hover:bg-black/40 border border-white/30 text-white/90"
+                    title="Ajustes de la capa base"
+                >
+                    <SlidersHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                  className="bg-gray-700/90 text-white border-gray-600 backdrop-blur-sm"
+                   onCloseAutoFocus={(e) => e.preventDefault()} // Prevents focus shift
+              >
+                  <BaseLayerControls settings={baseLayerSettings} onChange={onBaseLayerSettingsChange} />
+              </DropdownMenuContent>
+            </DropdownMenu>
+
             <Button
                 onClick={onOpenStreetView}
                 variant="outline"
@@ -103,9 +116,6 @@ const LayersPanel: React.FC<LayersPanelProps> = ({
               {isCapturing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
             </Button>
         </div>
-
-        <BaseLayerControls settings={baseLayerSettings} onChange={onBaseLayerSettingsChange} />
-        
       </div>
     </DraggablePanel>
   );
