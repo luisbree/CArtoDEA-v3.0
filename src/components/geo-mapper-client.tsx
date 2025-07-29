@@ -724,7 +724,7 @@ export default function GeoMapperClient() {
       </header>
 
       <div className="bg-gray-700/90 backdrop-blur-sm shadow-md p-2 z-20">
-        <LocationSearch onLocationSelect={handleLocationSelection} className="max-w-md mx-auto" />
+        <LocationSearch onLocationSelect={handleLocationSelection} className="max-w-sm" />
       </div>
 
       <div ref={mapAreaRef} className="relative flex-1 overflow-visible">
