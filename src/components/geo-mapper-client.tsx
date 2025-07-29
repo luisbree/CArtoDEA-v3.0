@@ -617,19 +617,15 @@ export default function GeoMapperClient() {
   }, [mapRef, toast]);
   
   const handleCaptureAndDownload = useCallback(() => {
-    if (!mapRef.current) {
-      toast({ description: 'El mapa no está listo.', variant: 'destructive' });
+    if (!mapRef.current || isCapturing) {
       return;
     }
-    if (isCapturing) {
-      return;
-    }
-  
+
     setIsCapturing(true);
     toast({ description: 'Generando captura de mapa...' });
-  
+
     const map = mapRef.current;
-  
+
     map.once('rendercomplete', () => {
       try {
         const mapCanvas = document.createElement('canvas');
@@ -643,25 +639,26 @@ export default function GeoMapperClient() {
         if (!mapContext) {
           throw new Error("Could not get canvas context.");
         }
-  
+
         const canvases = map.getViewport().querySelectorAll('.ol-layer canvas, canvas.ol-layer');
         Array.from(canvases).forEach(canvas => {
           if (canvas instanceof HTMLCanvasElement && canvas.width > 0) {
             const opacity = parseFloat(canvas.style.opacity) || 1.0;
+            const filter = (canvas.style as any).filter || 'none';
             mapContext.globalAlpha = opacity;
+            mapContext.filter = filter;
             mapContext.drawImage(canvas, 0, 0, canvas.width, canvas.height);
           }
         });
-  
+
         const dataUrl = mapCanvas.toDataURL('image/jpeg', 0.95);
-  
         const link = document.createElement('a');
         link.href = dataUrl;
         link.download = `map_capture_${activeBaseLayerId}.jpeg`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-  
+        
         toast({ description: 'Captura completada.' });
       } catch (e) {
         console.error('Error capturing map:', e);
@@ -674,9 +671,9 @@ export default function GeoMapperClient() {
         setIsCapturing(false);
       }
     });
-  
+
     map.renderSync();
-  }, [mapRef, activeBaseLayerId, toast, isCapturing]);
+  }, [mapRef, isCapturing, toast, activeBaseLayerId]);
 
 
   return (
@@ -973,3 +970,5 @@ export default function GeoMapperClient() {
     </div>
   );
 }
+
+    
