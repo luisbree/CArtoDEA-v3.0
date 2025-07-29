@@ -26,7 +26,6 @@ import type { Source as TileSource } from 'ol/source';
 
 import MapView, { BASE_LAYER_DEFINITIONS } from '@/components/map-view';
 import AttributesPanel from '@/components/panels/AttributesPanel'; 
-import LayersPanel from '@/components/panels/LayersPanel';
 import ToolsPanel from '@/components/panels/ToolsPanel';
 import LegendPanel from '@/components/panels/LegendPanel';
 import AIPanel from '@/components/panels/AIPanel';
@@ -146,7 +145,6 @@ const panelToggleConfigs = [
 
 export default function GeoMapperClient() {
   const mapAreaRef = useRef<HTMLDivElement>(null);
-  const layersPanelRef = useRef<HTMLDivElement>(null);
   const toolsPanelRef = useRef<HTMLDivElement>(null);
   const legendPanelRef = useRef<HTMLDivElement>(null);
   const attributesPanelRef = useRef<HTMLDivElement>(null);
@@ -162,7 +160,7 @@ export default function GeoMapperClient() {
   const { toast } = useToast();
 
   const { panels, handlePanelMouseDown, togglePanelCollapse, togglePanelMinimize } = useFloatingPanels({
-    layersPanelRef,
+    layersPanelRef: useRef<HTMLDivElement>(null), // Dummy ref as it's removed
     toolsPanelRef,
     legendPanelRef,
     attributesPanelRef,
@@ -730,53 +728,53 @@ export default function GeoMapperClient() {
         </div>
       </header>
 
-      <div className="bg-gray-700/90 backdrop-blur-sm shadow-md p-2 z-20 flex items-center justify-between gap-4">
+      <div className="bg-gray-700/90 backdrop-blur-sm shadow-md p-2 z-20 flex items-center gap-2">
         <LocationSearch onLocationSelect={handleLocationSelection} className="max-w-sm" />
-        <div className="flex items-center gap-2">
+        <div className="max-w-sm w-full">
             <BaseLayerSelector
                 availableBaseLayers={availableBaseLayersForSelect}
                 activeBaseLayerId={activeBaseLayerId}
                 onChangeBaseLayer={handleChangeBaseLayer}
             />
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-8 w-8 flex-shrink-0 bg-black/20 hover:bg-black/40 border border-white/30 text-white/90"
-                    title="Ajustes de la capa base"
-                >
-                    <SlidersHorizontal className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                  className="bg-gray-700/90 text-white border-gray-600 backdrop-blur-sm"
-                   onCloseAutoFocus={(e) => e.preventDefault()}
-              >
-                  <BaseLayerControls settings={baseLayerSettings} onChange={handleBaseLayerSettingsChange} />
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            <Button
-                onClick={handleOpenStreetView}
-                variant="outline"
-                size="icon"
-                className="h-8 w-8 flex-shrink-0 bg-black/20 hover:bg-black/40 border border-white/30 text-white/90"
-                title="Abrir Google Street View en la ubicación actual"
-            >
-                <StreetViewIcon className="h-5 w-5" />
-            </Button>
-            <Button
-                onClick={handleCaptureAndDownload}
-                variant="outline"
-                size="icon"
-                className="h-8 w-8 flex-shrink-0 bg-black/20 hover:bg-black/40 border border-white/30 text-white/90"
-                title="Capturar imagen UHD del mapa base"
-                disabled={isCapturing}
-            >
-              {isCapturing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
-            </Button>
         </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8 flex-shrink-0 bg-black/20 hover:bg-black/40 border border-white/30 text-white/90"
+                title="Ajustes de la capa base"
+            >
+                <SlidersHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+              className="bg-gray-700/90 text-white border-gray-600 backdrop-blur-sm"
+               onCloseAutoFocus={(e) => e.preventDefault()}
+          >
+              <BaseLayerControls settings={baseLayerSettings} onChange={handleBaseLayerSettingsChange} />
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <Button
+            onClick={handleOpenStreetView}
+            variant="outline"
+            size="icon"
+            className="h-8 w-8 flex-shrink-0 bg-black/20 hover:bg-black/40 border border-white/30 text-white/90"
+            title="Abrir Google Street View en la ubicación actual"
+        >
+            <StreetViewIcon className="h-5 w-5" />
+        </Button>
+        <Button
+            onClick={handleCaptureAndDownload}
+            variant="outline"
+            size="icon"
+            className="h-8 w-8 flex-shrink-0 bg-black/20 hover:bg-black/40 border border-white/30 text-white/90"
+            title="Capturar imagen UHD del mapa base"
+            disabled={isCapturing}
+        >
+          {isCapturing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
+        </Button>
       </div>
 
       <div ref={mapAreaRef} className="relative flex-1 overflow-visible">
