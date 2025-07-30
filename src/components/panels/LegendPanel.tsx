@@ -184,7 +184,7 @@ const LegendPanel: React.FC<LegendPanelProps> = ({
         {/* --- Main Content Area (split into two scrollable sections) --- */}
         <div className="flex-grow flex flex-col min-h-0">
             {/* --- Active Layers List --- */}
-            <div className="flex-grow flex flex-col min-h-[100px]">
+            <div className="flex-grow flex flex-col basis-2/3">
                 <ScrollArea className="flex-grow">
                     <div className="pr-3">
                         <LayerList
@@ -209,7 +209,7 @@ const LegendPanel: React.FC<LegendPanelProps> = ({
             </div>
 
             {/* --- DEAS Catalog Section --- */}
-            <div className="flex-grow flex flex-col min-h-[150px] pt-2">
+            <div className="flex flex-col pt-2 basis-1/3">
                 <Separator className="bg-white/10 mb-2" />
                 <h3 className="text-sm font-semibold text-white px-2 pb-2 flex-shrink-0">Capas Predefinidas (DEAS)</h3>
                 <ScrollArea className="flex-grow min-h-0 border-t border-gray-700/50">
@@ -262,4 +262,5 @@ const LegendPanel: React.FC<LegendPanelProps> = ({
 };
 
 export default LegendPanel;
+
 
