@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import DraggablePanel from './DraggablePanel';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, Library, Layers, Plus, X as ClearIcon } from 'lucide-react';
+import { Loader2, Library, Layers, Plus, X as ClearIcon, Search } from 'lucide-react';
 import type { OgcServer, ServerDiscoveredLayer } from '@/hooks/wfs-library/useWfsLibrary';
 
 interface WfsLibraryPanelProps {
@@ -40,6 +40,7 @@ const WfsLibraryPanel: React.FC<WfsLibraryPanelProps> = ({
 }) => {
   const [customUrl, setCustomUrl] = useState('');
   const [selectedServerUrl, setSelectedServerUrl] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
 
   const handleFetch = () => {
     const urlToFetch = customUrl.trim() || selectedServerUrl;
@@ -63,6 +64,13 @@ const WfsLibraryPanel: React.FC<WfsLibraryPanelProps> = ({
     }
     return title;
   };
+
+  const filteredLayers = useMemo(() => {
+    if (!searchTerm) return discoveredLayers;
+    return discoveredLayers.filter(layer =>
+      layer.title.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [searchTerm, discoveredLayers]);
 
   return (
     <DraggablePanel
@@ -130,11 +138,22 @@ const WfsLibraryPanel: React.FC<WfsLibraryPanelProps> = ({
         <Separator className="bg-white/15" />
 
         <div className="flex-grow flex flex-col min-h-0">
-          <Label className="text-xs font-medium text-white/90 mb-1">Capas Disponibles</Label>
+          <Label className="text-xs font-medium text-white/90 mb-1">Capas Disponibles ({filteredLayers.length})</Label>
+          
+           <div className="relative mb-2">
+                <Input
+                    placeholder="Buscar capa por nombre..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="text-xs h-8 border-white/30 bg-black/20 text-white/90 focus:ring-primary pl-8"
+                />
+                <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+            </div>
+
           <ScrollArea className="flex-grow border border-white/10 p-2 rounded-md bg-black/10">
-            {discoveredLayers.length > 0 ? (
+            {filteredLayers.length > 0 ? (
               <ul className="space-y-1.5 w-full">
-                {discoveredLayers.map((layer) => (
+                {filteredLayers.map((layer) => (
                   <li key={layer.name} className="flex items-center gap-2 p-1.5 rounded-md border border-white/15 bg-black/10 hover:bg-white/15 transition-colors">
                     <Button
                       variant="outline"
@@ -153,7 +172,9 @@ const WfsLibraryPanel: React.FC<WfsLibraryPanelProps> = ({
                 ))}
               </ul>
             ) : (
-              <p className="text-xs text-gray-400/80 text-center py-2">Seleccione un servidor y cargue sus capas.</p>
+              <p className="text-xs text-gray-400/80 text-center py-2">
+                  {isLoading ? 'Cargando capas...' : 'No se encontraron capas con ese nombre.'}
+              </p>
             )}
           </ScrollArea>
         </div>
