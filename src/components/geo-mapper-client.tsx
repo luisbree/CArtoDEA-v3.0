@@ -33,7 +33,6 @@ import TrelloPanel from '@/components/panels/TrelloPanel';
 import WfsLibraryPanel from '@/components/panels/WfsLibraryPanel';
 import HelpPanel from '@/components/panels/HelpPanel';
 import PrintComposerPanel from '@/components/panels/PrintComposerPanel';
-import DeasCatalogPanel from '@/components/panels/DeasCatalogPanel';
 import GeeProcessingPanel from '@/components/panels/GeeProcessingPanel';
 import WfsLoadingIndicator from '@/components/feedback/WfsLoadingIndicator';
 import LocationSearch from '@/components/location-search/LocationSearch';
@@ -130,8 +129,7 @@ const PANEL_WIDTH = 350;
 const PANEL_PADDING = 8;
 
 const panelToggleConfigs = [
-  { id: 'legend', IconComponent: ListTree, name: "Capas en Mapa" },
-  { id: 'deasCatalog', IconComponent: Server, name: "Capas Predefinidas" },
+  { id: 'legend', IconComponent: ListTree, name: "Capas" },
   { id: 'wfsLibrary', IconComponent: Library, name: "Biblioteca de Servidores" },
   { id: 'tools', IconComponent: Wrench, name: "Herramientas" },
   { id: 'trello', IconComponent: ClipboardCheck, name: "Trello" },
@@ -153,14 +151,12 @@ export default function GeoMapperClient() {
   const wfsLibraryPanelRef = useRef<HTMLDivElement>(null);
   const helpPanelRef = useRef<HTMLDivElement>(null);
   const printComposerPanelRef = useRef<HTMLDivElement>(null);
-  const deasCatalogPanelRef = useRef<HTMLDivElement>(null);
   const geePanelRef = useRef<HTMLDivElement>(null);
 
   const { mapRef, mapElementRef, setMapInstanceAndElement, isMapReady, drawingSourceRef } = useOpenLayersMap();
   const { toast } = useToast();
 
   const { panels, handlePanelMouseDown, togglePanelCollapse, togglePanelMinimize } = useFloatingPanels({
-    layersPanelRef: useRef<HTMLDivElement>(null), // Dummy ref as it's removed
     toolsPanelRef,
     legendPanelRef,
     attributesPanelRef,
@@ -169,9 +165,7 @@ export default function GeoMapperClient() {
     wfsLibraryPanelRef,
     helpPanelRef,
     printComposerPanelRef,
-    deasCatalogPanelRef,
     geePanelRef,
-    cameraPanelRef: useRef<HTMLDivElement>(null), // Pass a dummy ref
     mapAreaRef,
     panelWidth: PANEL_WIDTH,
     panelPadding: PANEL_PADDING,
@@ -789,19 +783,6 @@ export default function GeoMapperClient() {
 
         <WfsLoadingIndicator isVisible={isWfsLoading || wfsLibraryHook.isLoading} />
 
-        {panels.deasCatalog && !panels.deasCatalog.isMinimized && (
-            <DeasCatalogPanel
-                panelRef={deasCatalogPanelRef}
-                isCollapsed={panels.deasCatalog.isCollapsed}
-                onToggleCollapse={() => togglePanelCollapse('deasCatalog')}
-                onClosePanel={() => togglePanelMinimize('deasCatalog')}
-                onMouseDownHeader={(e) => handlePanelMouseDown(e, 'deasCatalog')}
-                discoveredLayers={discoveredGeoServerLayers}
-                onAddWfsLayer={handleDeasAddWfsLayer}
-                style={{ top: `${panels.deasCatalog.position.y}px`, left: `${panels.deasCatalog.position.x}px`, zIndex: panels.deasCatalog.zIndex }}
-            />
-        )}
-
         {panels.tools && !panels.tools.isMinimized && (
           <ToolsPanel
             panelRef={toolsPanelRef}
@@ -857,6 +838,8 @@ export default function GeoMapperClient() {
             onSetSelectionMode={featureInspectionHook.setSelectionMode}
             onClearSelection={featureInspectionHook.clearSelection}
             style={{ top: `${panels.legend.position.y}px`, left: `${panels.legend.position.x}px`, zIndex: panels.legend.zIndex }}
+            discoveredDeasLayers={discoveredGeoServerLayers}
+            onAddDeasLayer={handleDeasAddWfsLayer}
           />
         )}
 

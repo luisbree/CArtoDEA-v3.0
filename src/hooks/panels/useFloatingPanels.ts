@@ -3,7 +3,7 @@
 
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 
-type PanelId = 'layers' | 'tools' | 'legend' | 'attributes' | 'ai' | 'trello' | 'wfsLibrary' | 'help' | 'printComposer' | 'deasCatalog' | 'gee';
+type PanelId = 'tools' | 'legend' | 'attributes' | 'ai' | 'trello' | 'wfsLibrary' | 'help' | 'printComposer' | 'gee';
 
 interface PanelState {
   isMinimized: boolean;
@@ -13,7 +13,6 @@ interface PanelState {
 }
 
 interface UseFloatingPanelsProps {
-  layersPanelRef: React.RefObject<HTMLDivElement>;
   toolsPanelRef: React.RefObject<HTMLDivElement>;
   legendPanelRef: React.RefObject<HTMLDivElement>;
   attributesPanelRef: React.RefObject<HTMLDivElement>;
@@ -22,9 +21,7 @@ interface UseFloatingPanelsProps {
   wfsLibraryPanelRef: React.RefObject<HTMLDivElement>;
   helpPanelRef: React.RefObject<HTMLDivElement>;
   printComposerPanelRef: React.RefObject<HTMLDivElement>;
-  deasCatalogPanelRef: React.RefObject<HTMLDivElement>;
   geePanelRef: React.RefObject<HTMLDivElement>;
-  cameraPanelRef: React.RefObject<HTMLDivElement>;
   mapAreaRef: React.RefObject<HTMLDivElement>;
   panelWidth: number;
   panelPadding: number;
@@ -33,7 +30,6 @@ interface UseFloatingPanelsProps {
 const initialZIndex = 30;
 
 export const useFloatingPanels = ({
-  layersPanelRef,
   toolsPanelRef,
   legendPanelRef,
   attributesPanelRef,
@@ -42,16 +38,13 @@ export const useFloatingPanels = ({
   wfsLibraryPanelRef,
   helpPanelRef,
   printComposerPanelRef,
-  deasCatalogPanelRef,
   geePanelRef,
-  cameraPanelRef,
   mapAreaRef,
   panelWidth,
   panelPadding
 }: UseFloatingPanelsProps) => {
 
   const panelRefs = useMemo(() => ({
-    layers: layersPanelRef,
     tools: toolsPanelRef,
     legend: legendPanelRef,
     attributes: attributesPanelRef,
@@ -60,9 +53,8 @@ export const useFloatingPanels = ({
     wfsLibrary: wfsLibraryPanelRef,
     help: helpPanelRef,
     printComposer: printComposerPanelRef,
-    deasCatalog: deasCatalogPanelRef,
     gee: geePanelRef,
-  }), [attributesPanelRef, aiPanelRef, layersPanelRef, legendPanelRef, toolsPanelRef, trelloPanelRef, wfsLibraryPanelRef, helpPanelRef, printComposerPanelRef, deasCatalogPanelRef, geePanelRef]);
+  }), [attributesPanelRef, aiPanelRef, legendPanelRef, toolsPanelRef, trelloPanelRef, wfsLibraryPanelRef, helpPanelRef, printComposerPanelRef, geePanelRef]);
   
   const [panels, setPanels] = useState<Record<PanelId, PanelState>>(() => {
     const initialX = panelPadding;
@@ -72,15 +64,13 @@ export const useFloatingPanels = ({
     
     return {
       // Order reflects the toggle buttons in the UI
-      legend: { isMinimized: false, isCollapsed: false, position: { x: initialX + cascadeOffsetX, y: initialY + cascadeOffsetY }, zIndex: initialZIndex + 1 },
-      deasCatalog: { isMinimized: false, isCollapsed: false, position: { x: initialX, y: initialY }, zIndex: initialZIndex + 2 },
-      wfsLibrary: { isMinimized: true, isCollapsed: false, position: { x: initialX + cascadeOffsetX * 2, y: initialY + cascadeOffsetY * 2 }, zIndex: initialZIndex },
-      layers: { isMinimized: true, isCollapsed: false, position: { x: initialX + cascadeOffsetX * 3, y: initialY + cascadeOffsetY * 3 }, zIndex: initialZIndex },
-      tools: { isMinimized: true, isCollapsed: false, position: { x: initialX + cascadeOffsetX * 4, y: initialY + cascadeOffsetY * 4 }, zIndex: initialZIndex },
-      trello: { isMinimized: true, isCollapsed: false, position: { x: initialX + cascadeOffsetX * 5, y: initialY + cascadeOffsetY * 5 }, zIndex: initialZIndex },
-      attributes: { isMinimized: true, isCollapsed: false, position: { x: initialX + cascadeOffsetX * 6, y: initialY + cascadeOffsetY * 6 }, zIndex: initialZIndex },
-      printComposer: { isMinimized: true, isCollapsed: false, position: { x: initialX + cascadeOffsetX * 7, y: initialY + cascadeOffsetY * 7 }, zIndex: initialZIndex },
-      gee: { isMinimized: true, isCollapsed: false, position: { x: initialX + cascadeOffsetX * 8, y: initialY + cascadeOffsetY * 8 }, zIndex: initialZIndex },
+      legend: { isMinimized: false, isCollapsed: false, position: { x: initialX, y: initialY }, zIndex: initialZIndex + 2 },
+      wfsLibrary: { isMinimized: true, isCollapsed: false, position: { x: initialX + cascadeOffsetX, y: initialY + cascadeOffsetY }, zIndex: initialZIndex },
+      tools: { isMinimized: true, isCollapsed: false, position: { x: initialX + cascadeOffsetX * 2, y: initialY + cascadeOffsetY * 2 }, zIndex: initialZIndex },
+      trello: { isMinimized: true, isCollapsed: false, position: { x: initialX + cascadeOffsetX * 3, y: initialY + cascadeOffsetY * 3 }, zIndex: initialZIndex },
+      attributes: { isMinimized: true, isCollapsed: false, position: { x: initialX + cascadeOffsetX * 4, y: initialY + cascadeOffsetY * 4 }, zIndex: initialZIndex },
+      printComposer: { isMinimized: true, isCollapsed: false, position: { x: initialX + cascadeOffsetX * 5, y: initialY + cascadeOffsetY * 5 }, zIndex: initialZIndex },
+      gee: { isMinimized: true, isCollapsed: false, position: { x: initialX + cascadeOffsetX * 6, y: initialY + cascadeOffsetY * 6 }, zIndex: initialZIndex },
       ai: { isMinimized: false, isCollapsed: false, position: { x: -9999, y: panelPadding }, zIndex: initialZIndex + 3 }, // Positioned dynamically
       help: { isMinimized: true, isCollapsed: false, position: { x: -9999, y: panelPadding }, zIndex: initialZIndex }, // Positioned dynamically
     };
@@ -213,5 +203,3 @@ export const useFloatingPanels = ({
     togglePanelMinimize,
   };
 };
-
-    
