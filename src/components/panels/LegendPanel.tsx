@@ -147,7 +147,7 @@ const LegendPanel: React.FC<LegendPanelProps> = ({
     >
       <div className="flex flex-col h-full">
         {/* --- Top Toolbar --- */}
-        <div className="flex-shrink-0 space-y-2"> 
+        <div className="flex-shrink-0 space-y-2 mb-2"> 
           <div className="flex items-center gap-1 p-1 bg-white/5 rounded-md"> 
             <FileUploadControl onAddLayer={onAddLayer} uniqueIdPrefix="legendpanel-upload" />
             <TooltipProvider delayDuration={300}>
@@ -179,29 +179,28 @@ const LegendPanel: React.FC<LegendPanelProps> = ({
               onClearSelection={onClearSelection}
             />
           </div>
-          <Separator className="bg-white/10" /> 
         </div>
 
         {/* --- Active Layers List --- */}
-        <ScrollArea className="flex-shrink min-h-0">
-          <LayerList
-            layers={layers}
-            onToggleVisibility={onToggleLayerVisibility}
-            onZoomToExtent={onZoomToLayerExtent}
-            onShowLayerTable={onShowLayerTable}
-            onRemoveLayer={onRemoveLayer}
-            onExtractByPolygon={(layerId) => onExtractByPolygon(layerId, clearLayerSelection)}
-            onExtractBySelection={() => onExtractBySelection(clearLayerSelection)}
-            onExportLayer={onExportLayer}
-            onRenameLayer={onRenameLayer}
-            isDrawingSourceEmptyOrNotPolygon={isDrawingSourceEmptyOrNotPolygon}
-            isSelectionEmpty={isSelectionEmpty}
-            onSetLayerOpacity={onSetLayerOpacity}
-            onReorderLayers={onReorderLayers}
-            selectedLayerIds={selectedLayerIds}
-            onLayerClick={handleLayerClick}
-          />
-        </ScrollArea>
+        <div className="flex-shrink-0">
+            <LayerList
+                layers={layers}
+                onToggleVisibility={onToggleLayerVisibility}
+                onZoomToExtent={onZoomToLayerExtent}
+                onShowLayerTable={onShowLayerTable}
+                onRemoveLayer={onRemoveLayer}
+                onExtractByPolygon={(layerId) => onExtractByPolygon(layerId, clearLayerSelection)}
+                onExtractBySelection={() => onExtractBySelection(clearLayerSelection)}
+                onExportLayer={onExportLayer}
+                onRenameLayer={onRenameLayer}
+                isDrawingSourceEmptyOrNotPolygon={isDrawingSourceEmptyOrNotPolygon}
+                isSelectionEmpty={isSelectionEmpty}
+                onSetLayerOpacity={onSetLayerOpacity}
+                onReorderLayers={onReorderLayers}
+                selectedLayerIds={selectedLayerIds}
+                onLayerClick={handleLayerClick}
+            />
+        </div>
 
         {/* --- DEAS Catalog Section --- */}
         <div className="flex-grow flex flex-col min-h-0 pt-2">

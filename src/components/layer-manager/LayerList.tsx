@@ -90,7 +90,7 @@ const LayerList: React.FC<LayerListProps> = ({
 
   if (layers.length === 0) {
     return (
-      <div className="text-center py-6 px-3">
+      <div className="text-center py-6 px-3 border border-dashed border-white/10 rounded-md">
         <Layers className="mx-auto h-10 w-10 text-gray-400/40" />
         <p className="mt-1.5 text-xs text-gray-300/90">No hay capas cargadas.</p>
         <p className="text-xs text-gray-400/70">Use el botón "Importar" para añadir.</p>
