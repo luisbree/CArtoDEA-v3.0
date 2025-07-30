@@ -95,6 +95,7 @@ const GeeProcessingPanel: React.FC<GeeProcessingPanelProps> = ({
                 case 'OPENLANDMAP_SOC': layerName = 'Carbono Org. del Suelo (OpenLandMap)'; break;
                 case 'DYNAMIC_WORLD': layerName = 'Dynamic World Land Cover'; break;
                 case 'NASADEM_ELEVATION': layerName = `NASADEM Elevación (${elevationRange[0]}-${elevationRange[1]}m)`; break;
+                case 'NEON_RGB_IMAGERY': layerName = 'NEON RGB Imagery'; break;
                 default: layerName = 'Capa GEE';
             }
             onAddGeeLayer(result.tileUrl, layerName);
@@ -180,6 +181,10 @@ const GeeProcessingPanel: React.FC<GeeProcessingPanelProps> = ({
                <div className="flex items-center space-x-2">
                 <RadioGroupItem value="DYNAMIC_WORLD" id="dw-combo" />
                 <Label htmlFor="dw-combo" className="text-xs font-normal">Cobertura del Suelo (Dynamic World)</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="NEON_RGB_IMAGERY" id="neon-combo" />
+                <Label htmlFor="neon-combo" className="text-xs font-normal">NEON RGB Camera Imagery</Label>
               </div>
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="NASADEM_ELEVATION" id="nasadem-combo" />

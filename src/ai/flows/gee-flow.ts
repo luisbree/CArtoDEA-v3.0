@@ -44,7 +44,7 @@ const getImageForProcessing = (input: GeeTileLayerInput) => {
         '#DFC35A', '#C4281B', '#A59B8F', '#B39FE1',
     ];
 
-    if (bandCombination !== 'JRC_WATER_OCCURRENCE' && bandCombination !== 'OPENLANDMAP_SOC' && bandCombination !== 'DYNAMIC_WORLD' && bandCombination !== 'NASADEM_ELEVATION') {
+    if (bandCombination !== 'JRC_WATER_OCCURRENCE' && bandCombination !== 'OPENLANDMAP_SOC' && bandCombination !== 'DYNAMIC_WORLD' && bandCombination !== 'NASADEM_ELEVATION' && bandCombination !== 'NEON_RGB_IMAGERY') {
         let s2ImageCollection = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
           .filterBounds(geometry)
           .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 20));
@@ -79,6 +79,12 @@ const getImageForProcessing = (input: GeeTileLayerInput) => {
             visParams = { bands: ['B8', 'B4', 'B3'], min: 0, max: 3000 };
             break;
         }
+    } else if (bandCombination === 'NEON_RGB_IMAGERY') {
+        const neonCollection = ee.ImageCollection('NEON/DP3.30010.001')
+          .filterBounds(geometry)
+          .filterDate(startDate, endDate);
+        finalImage = neonCollection.mosaic();
+        visParams = { bands: ['R', 'G', 'B'], min: 0, max: 255 };
     } else if (bandCombination === 'DYNAMIC_WORLD') {
         const dwCollection = ee.ImageCollection('GOOGLE/DYNAMICWORLD/V1').filterBounds(geometry).filterDate(startDate, endDate);
         finalImage = ee.Image(dwCollection.mode()).select('label');
