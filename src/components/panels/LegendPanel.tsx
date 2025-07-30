@@ -143,7 +143,7 @@ const LegendPanel: React.FC<LegendPanelProps> = ({
       style={style} 
       zIndex={style?.zIndex as number | undefined}
       initialSize={{ width: 350, height: "80vh" }}
-      minSize={{ width: 300, height: 200 }}
+      minSize={{ width: 300, height: 300 }}
     >
       <div className="flex flex-col h-full">
         {/* --- Top Toolbar --- */}
@@ -181,71 +181,80 @@ const LegendPanel: React.FC<LegendPanelProps> = ({
           </div>
         </div>
 
-        {/* --- Active Layers List --- */}
-        <div className="flex-shrink-0">
-            <LayerList
-                layers={layers}
-                onToggleVisibility={onToggleLayerVisibility}
-                onZoomToExtent={onZoomToLayerExtent}
-                onShowLayerTable={onShowLayerTable}
-                onRemoveLayer={onRemoveLayer}
-                onExtractByPolygon={(layerId) => onExtractByPolygon(layerId, clearLayerSelection)}
-                onExtractBySelection={() => onExtractBySelection(clearLayerSelection)}
-                onExportLayer={onExportLayer}
-                onRenameLayer={onRenameLayer}
-                isDrawingSourceEmptyOrNotPolygon={isDrawingSourceEmptyOrNotPolygon}
-                isSelectionEmpty={isSelectionEmpty}
-                onSetLayerOpacity={onSetLayerOpacity}
-                onReorderLayers={onReorderLayers}
-                selectedLayerIds={selectedLayerIds}
-                onLayerClick={handleLayerClick}
-            />
-        </div>
+        {/* --- Main Content Area (split into two scrollable sections) --- */}
+        <div className="flex-grow flex flex-col min-h-0">
+            {/* --- Active Layers List --- */}
+            <div className="flex-grow flex flex-col min-h-[100px]">
+                <ScrollArea className="flex-grow">
+                    <div className="pr-3">
+                        <LayerList
+                            layers={layers}
+                            onToggleVisibility={onToggleLayerVisibility}
+                            onZoomToExtent={onZoomToLayerExtent}
+                            onShowLayerTable={onShowLayerTable}
+                            onRemoveLayer={onRemoveLayer}
+                            onExtractByPolygon={(layerId) => onExtractByPolygon(layerId, clearLayerSelection)}
+                            onExtractBySelection={() => onExtractBySelection(clearLayerSelection)}
+                            onExportLayer={onExportLayer}
+                            onRenameLayer={onRenameLayer}
+                            isDrawingSourceEmptyOrNotPolygon={isDrawingSourceEmptyOrNotPolygon}
+                            isSelectionEmpty={isSelectionEmpty}
+                            onSetLayerOpacity={onSetLayerOpacity}
+                            onReorderLayers={onReorderLayers}
+                            selectedLayerIds={selectedLayerIds}
+                            onLayerClick={handleLayerClick}
+                        />
+                    </div>
+                </ScrollArea>
+            </div>
 
-        {/* --- DEAS Catalog Section --- */}
-        <div className="flex-grow flex flex-col min-h-0 pt-2">
-            <Separator className="bg-white/10 mb-2" />
-            <h3 className="text-sm font-semibold text-white px-2 pb-2">Capas Predefinidas (DEAS)</h3>
-            <ScrollArea className="flex-grow min-h-0 border-t border-gray-700/50">
-              {discoveredDeasLayers.length > 0 ? (
-                  <Accordion type="multiple" className="w-full">
-                    {sortedWorkspaces.map((workspace) => (
-                      <AccordionItem value={workspace} key={workspace} className="border-b border-gray-700/50">
-                        <AccordionTrigger className="p-2 text-xs font-semibold text-white/90 hover:no-underline hover:bg-gray-700/30 rounded-t-md">
-                          {workspace}
-                        </AccordionTrigger>
-                        <AccordionContent className="p-1 pl-4 bg-black/20">
-                          <div className="space-y-1">
-                            {sortedGroupedLayers[workspace].map((layer) => (
-                              <div key={layer.name} className="flex items-center space-x-2 p-1 rounded-md hover:bg-white/5">
-                                 <Button 
-                                   variant="outline" 
-                                   size="icon" 
-                                   className="h-6 w-6 p-0"
-                                   title={`Añadir capa de datos interactiva`}
-                                   onClick={() => onAddDeasLayer(layer)}
-                                   disabled={layer.wfsAddedToMap}
-                                  >
-                                   <Database className="h-3.5 w-3.5" />
-                                 </Button>
-                                <Label
-                                  htmlFor={layer.name}
-                                  className="text-xs font-medium text-white/80 cursor-pointer flex-1 capitalize"
-                                  title={layer.name}
-                                >
-                                  {layer.title.toLowerCase()}
-                                </Label>
+            {/* --- DEAS Catalog Section --- */}
+            <div className="flex-grow flex flex-col min-h-[150px] pt-2">
+                <Separator className="bg-white/10 mb-2" />
+                <h3 className="text-sm font-semibold text-white px-2 pb-2 flex-shrink-0">Capas Predefinidas (DEAS)</h3>
+                <ScrollArea className="flex-grow min-h-0 border-t border-gray-700/50">
+                <div className="pr-3">
+                  {discoveredDeasLayers.length > 0 ? (
+                      <Accordion type="multiple" className="w-full">
+                        {sortedWorkspaces.map((workspace) => (
+                          <AccordionItem value={workspace} key={workspace} className="border-b border-gray-700/50">
+                            <AccordionTrigger className="p-2 text-xs font-semibold text-white/90 hover:no-underline hover:bg-gray-700/30 rounded-t-md">
+                              {workspace}
+                            </AccordionTrigger>
+                            <AccordionContent className="p-1 pl-4 bg-black/20">
+                              <div className="space-y-1">
+                                {sortedGroupedLayers[workspace].map((layer) => (
+                                  <div key={layer.name} className="flex items-center space-x-2 p-1 rounded-md hover:bg-white/5">
+                                    <Button 
+                                      variant="outline" 
+                                      size="icon" 
+                                      className="h-6 w-6 p-0"
+                                      title={`Añadir capa de datos interactiva`}
+                                      onClick={() => onAddDeasLayer(layer)}
+                                      disabled={layer.wfsAddedToMap}
+                                      >
+                                      <Database className="h-3.5 w-3.5" />
+                                    </Button>
+                                    <Label
+                                      htmlFor={layer.name}
+                                      className="text-xs font-medium text-white/80 cursor-pointer flex-1 capitalize"
+                                      title={layer.name}
+                                    >
+                                      {layer.title.toLowerCase()}
+                                    </Label>
+                                  </div>
+                                ))}
                               </div>
-                            ))}
-                          </div>
-                        </AccordionContent>
-                      </AccordionItem>
-                    ))}
-                  </Accordion>
-              ) : (
-                  <p className="p-4 text-center text-xs text-gray-400">Cargando capas de DEAS...</p>
-              )}
-            </ScrollArea>
+                            </AccordionContent>
+                          </AccordionItem>
+                        ))}
+                      </Accordion>
+                  ) : (
+                      <p className="p-4 text-center text-xs text-gray-400">Cargando capas de DEAS...</p>
+                  )}
+                  </div>
+                </ScrollArea>
+            </div>
         </div>
       </div>
     </DraggablePanel>
@@ -253,3 +262,4 @@ const LegendPanel: React.FC<LegendPanelProps> = ({
 };
 
 export default LegendPanel;
+
