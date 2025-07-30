@@ -735,22 +735,22 @@ export default function GeoMapperClient() {
             />
         </div>
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-                variant="outline"
-                size="icon"
-                className="h-8 w-8 flex-shrink-0 bg-black/20 hover:bg-black/40 border border-white/30 text-white/90"
-                title="Ajustes de la capa base"
+            <DropdownMenuTrigger asChild>
+                <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8 flex-shrink-0 bg-black/20 hover:bg-black/40 border border-white/30 text-white/90"
+                    title="Ajustes de la capa base"
+                >
+                    <SlidersHorizontal className="h-4 w-4" />
+                </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+                className="bg-gray-700/90 text-white border-gray-600 backdrop-blur-sm"
+                onCloseAutoFocus={(e) => e.preventDefault()}
             >
-                <SlidersHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-              className="bg-gray-700/90 text-white border-gray-600 backdrop-blur-sm"
-               onCloseAutoFocus={(e) => e.preventDefault()}
-          >
-              <BaseLayerControls settings={baseLayerSettings} onChange={handleBaseLayerSettingsChange} />
-          </DropdownMenuContent>
+                <BaseLayerControls settings={baseLayerSettings} onChange={handleBaseLayerSettingsChange} />
+            </DropdownMenuContent>
         </DropdownMenu>
 
         <Button
