@@ -227,22 +227,17 @@ export default function GeoMapperClient() {
     updateGeoServerDiscoveredLayerState: updateDiscoveredLayerState,
     selectedFeaturesForExtraction: featureInspectionHook.selectedFeatures,
     clearSelectionAfterExtraction: featureInspectionHook.clearSelection,
+    setIsWfsLoading,
   });
   
   const {
-    handleFetchGeoServerLayers, handleAddHybridLayer,
+    handleFetchGeoServerLayers,
   } = useGeoServerLayers({
-      mapRef,
-      isMapReady,
-      addLayer: layerManagerHook.addLayer,
       onLayerStateUpdate: updateDiscoveredLayerState,
-      setIsWfsLoading
   });
   
   const wfsLibraryHook = useWfsLibrary({
-    mapRef,
-    isMapReady,
-    addLayer: layerManagerHook.addLayer,
+    onAddLayer: layerManagerHook.handleAddHybridLayer,
   });
 
   const initialGeoServerUrl = 'http://www.minfra.gba.gob.ar/ambientales/geoserver';
@@ -426,7 +421,7 @@ export default function GeoMapperClient() {
         layersToAddHybrid.forEach(layerNameToAdd => {
             const layerData = discoveredGeoServerLayers.find(l => l.name === layerNameToAdd);
             if (layerData) {
-                handleAddHybridLayer(layerData.name, layerData.title, initialGeoServerUrl, layerData.bbox);
+                layerManagerHook.handleAddHybridLayer(layerData.name, layerData.title, initialGeoServerUrl, layerData.bbox);
             } else {
                 toast({
                     title: "Capa no encontrada",
@@ -546,7 +541,7 @@ export default function GeoMapperClient() {
       toast({ description: `Abriendo Trello en una nueva pestaña...` });
     }
 
-  }, [discoveredGeoServerLayers, handleAddHybridLayer, toast, layerManagerHook, zoomToBoundingBox, handleChangeBaseLayer, osmDataHook, initialGeoServerUrl, panels, togglePanelMinimize]);
+  }, [discoveredGeoServerLayers, layerManagerHook, toast, zoomToBoundingBox, handleChangeBaseLayer, osmDataHook, initialGeoServerUrl, panels, togglePanelMinimize]);
 
   const handleSearchTrelloCard = useCallback(async (searchTerm: string) => {
     setIsTrelloLoading(true);
@@ -566,8 +561,8 @@ export default function GeoMapperClient() {
   }, [toast]);
 
   const handleDeasAddWfsLayer = useCallback((layer: GeoServerDiscoveredLayer) => {
-    handleAddHybridLayer(layer.name, layer.title, initialGeoServerUrl, layer.bbox);
-  }, [handleAddHybridLayer, initialGeoServerUrl]);
+    layerManagerHook.handleAddHybridLayer(layer.name, layer.title, initialGeoServerUrl, layer.bbox);
+  }, [layerManagerHook, initialGeoServerUrl]);
 
   const handleAttributeTableFeatureSelect = useCallback((featureId: string, isCtrlOrMeta: boolean) => {
       // NEW: Automatically enable inspection mode if it's off

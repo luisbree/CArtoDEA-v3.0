@@ -6,6 +6,7 @@ import type { Map } from 'ol';
 import VectorSource from 'ol/source/Vector';
 import VectorLayer from 'ol/layer/Vector';
 import TileLayer from 'ol/layer/Tile';
+import TileWMS from 'ol/source/TileWMS';
 import XYZ from 'ol/source/XYZ';
 import type Feature from 'ol/Feature';
 import type { Geometry } from 'ol/geom';
@@ -21,6 +22,7 @@ import GeoJSON from 'ol/format/GeoJSON';
 import KML from 'ol/format/KML';
 import shp from 'shpjs';
 import JSZip from 'jszip';
+import { bbox as bboxStrategy } from 'ol/loadingstrategy';
 
 
 interface UseLayerManagerProps {
@@ -31,6 +33,7 @@ interface UseLayerManagerProps {
   updateGeoServerDiscoveredLayerState: (layerName: string, added: boolean, type: 'wms' | 'wfs') => void;
   selectedFeaturesForExtraction: Feature<Geometry>[];
   clearSelectionAfterExtraction: () => void;
+  setIsWfsLoading: (isLoading: boolean) => void;
 }
 
 const LAYER_START_Z_INDEX = 10;
@@ -49,6 +52,12 @@ const colorMap: { [key: string]: string } = {
   magenta: '#ff00ff',
 };
 
+// A completely transparent style for the invisible WFS layer
+const transparentStyle = new Style({
+  fill: new Fill({ color: 'rgba(255,255,255,0)' }),
+  stroke: new Stroke({ color: 'rgba(255,255,255,0)', width: 0 }),
+});
+
 export const useLayerManager = ({
   mapRef,
   isMapReady,
@@ -57,6 +66,7 @@ export const useLayerManager = ({
   updateGeoServerDiscoveredLayerState,
   selectedFeaturesForExtraction,
   clearSelectionAfterExtraction,
+  setIsWfsLoading,
 }: UseLayerManagerProps) => {
   const [layers, setLayers] = useState<MapLayer[]>([]);
   const { toast } = useToast();
@@ -115,6 +125,103 @@ export const useLayerManager = ({
     });
 
   }, [mapRef]);
+
+  const handleAddHybridLayer = useCallback(async (layerName: string, layerTitle: string, serverUrl: string, bbox?: [number, number, number, number]) => {
+      if (!isMapReady || !mapRef.current) return;
+      
+      const map = mapRef.current;
+      
+      try {
+          // 1. Add WMS layer for visualization (this is always fast)
+          const wmsSource = new TileWMS({
+              url: `${serverUrl}/wms`,
+              params: { 'LAYERS': layerName, 'TILED': true },
+              serverType: 'geoserver',
+              transition: 0,
+              crossOrigin: 'anonymous',
+          });
+
+          const wmsLayerId = `wms-visual-${layerName}-${nanoid()}`;
+          const wmsLayer = new TileLayer({
+              source: wmsSource,
+              properties: { id: wmsLayerId, name: `${layerTitle} (Visual)`, type: 'wms', gsLayerName: layerName, isVisualOnly: true, bbox: bbox },
+          });
+          map.addLayer(wmsLayer);
+
+          // 2. Setup WFS VectorSource with BBOX loading strategy
+          const vectorSource = new VectorSource({
+              format: new GeoJSON(),
+              strategy: bboxStrategy,
+              loader: function (extent, resolution, projection) {
+                  setIsWfsLoading(true);
+                  const proj = projection.getCode();
+                  const wfsUrl = `${serverUrl}/wfs?service=WFS&version=1.1.0&request=GetFeature&typename=${layerName}&outputFormat=application/json&srsname=${proj}&bbox=${extent.join(',')},${proj}`;
+                  const proxyUrl = `/api/geoserver-proxy?url=${encodeURIComponent(wfsUrl)}&cacheBust=${Date.now()}`;
+                  
+                  fetch(proxyUrl)
+                    .then(response => {
+                      if (!response.ok) {
+                        throw new Error(`Fallo en la solicitud WFS para ${layerName}`);
+                      }
+                      return response.json();
+                    })
+                    .then(data => {
+                      const features = vectorSource.getFormat()!.readFeatures(data);
+                      // Ensure all features get a unique ID for selection to work
+                      features.forEach(f => {
+                        if (!f.getId()) {
+                          f.setId(nanoid());
+                        }
+                      });
+                      vectorSource.addFeatures(features);
+                    })
+                    .catch(error => {
+                      console.error(`Error al cargar entidades WFS para ${layerName}:`, error);
+                      toast({ description: `No se pudieron cargar las entidades para ${layerTitle}.`, variant: "destructive" });
+                      vectorSource.removeLoadedExtent(extent); // Important: tell the source the load failed
+                    })
+                    .finally(() => {
+                      setIsWfsLoading(false);
+                    });
+              }
+          });
+
+          // 3. Create the invisible VectorLayer for interaction
+          const wfsLayerId = `wfs-data-${layerName}-${nanoid()}`;
+          const vectorLayer = new VectorLayer({
+              source: vectorSource,
+              style: transparentStyle, // Make it invisible
+              properties: {
+                  id: wfsLayerId,
+                  name: layerTitle || layerName,
+                  type: 'wfs',
+                  gsLayerName: layerName,
+                  isDeas: true,
+                  bbox: bbox,
+                  linkedWmsLayerId: wmsLayerId
+              }
+          });
+          
+          addLayer({
+              id: wfsLayerId,
+              name: layerTitle,
+              olLayer: vectorLayer,
+              visible: true,
+              opacity: 1,
+              type: 'wfs',
+              isDeas: true,
+          }, false);
+          
+          updateGeoServerDiscoveredLayerState(layerName, true, 'wfs');
+          updateGeoServerDiscoveredLayerState(layerName, true, 'wms');
+          toast({ description: `Capa "${layerTitle}" añadida.` });
+
+      } catch (error: any) {
+          console.error("Error adding hybrid WMS/WFS layer:", error);
+          toast({ description: `Error al añadir capa: ${error.message}`, variant: 'destructive' });
+          setIsWfsLoading(false); // Ensure loading is stopped on initial setup error
+      }
+  }, [isMapReady, mapRef, addLayer, updateGeoServerDiscoveredLayerState, toast, setIsWfsLoading]);
 
   const addGeeLayerToMap = useCallback((tileUrl: string, layerName: string) => {
     if (!mapRef.current) return;
@@ -685,6 +792,7 @@ export const useLayerManager = ({
     layers,
     addLayer,
     addGeeLayerToMap,
+    handleAddHybridLayer,
     removeLayer,
     removeLayers,
     reorderLayers,

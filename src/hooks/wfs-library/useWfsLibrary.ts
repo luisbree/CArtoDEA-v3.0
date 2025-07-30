@@ -24,9 +24,7 @@ export interface ServerDiscoveredLayer {
 }
 
 interface UseWfsLibraryProps {
-  mapRef: React.RefObject<Map | null>;
-  isMapReady: boolean;
-  addLayer: (layer: MapLayer) => void;
+  onAddLayer: (layerName: string, layerTitle: string, serverUrl: string, bbox?: [number, number, number, number]) => void;
 }
 
 // Predefined list of OGC servers.
@@ -66,9 +64,7 @@ export const PREDEFINED_SERVERS: OgcServer[] = [
 ];
 
 export const useWfsLibrary = ({
-  isMapReady,
-  mapRef,
-  addLayer
+  onAddLayer,
 }: UseWfsLibraryProps) => {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
@@ -144,48 +140,20 @@ export const useWfsLibrary = ({
     }
   }, [toast]);
   
-  const addWmsLayerToMap = useCallback((layerName: string, layerTitle: string, bbox?: [number, number, number, number]) => {
-    if (!isMapReady || !mapRef.current || !activeServerUrl) return;
-
-    const baseUrl = activeServerUrl.replace(/\/$/, '');
-    const wmsSource = new TileWMS({
-      url: `${baseUrl}/wms`,
-      params: { 'LAYERS': layerName, 'TILED': true },
-      serverType: 'geoserver',
-      transition: 0,
-      crossOrigin: 'anonymous',
-    });
-
-    const layerId = `wms-lib-${layerName}-${nanoid()}`;
-    const wmsLayer = new TileLayer({
-      source: wmsSource,
-      properties: {
-        id: layerId,
-        name: layerTitle || layerName,
-        type: 'wms',
-        gsLayerName: layerName,
-        bbox: bbox,
-      }
-    });
-
-    addLayer({
-      id: wmsLayer.get('id'),
-      name: wmsLayer.get('name'),
-      olLayer: wmsLayer,
-      visible: true,
-      opacity: 1,
-      type: 'wms',
-    });
-    
+  const addHybridLayerFromLibrary = useCallback((layerName: string, layerTitle: string, bbox?: [number, number, number, number]) => {
+    if (!activeServerUrl) {
+        toast({ description: "No hay un servidor activo seleccionado.", variant: "destructive" });
+        return;
+    }
+    onAddLayer(layerName, layerTitle, activeServerUrl, bbox);
     setDiscoveredLayers(prev => prev.map(l => l.name === layerName ? { ...l, added: true } : l));
-    toast({ description: `Capa WMS "${layerTitle}" añadida al mapa.` });
-  }, [isMapReady, mapRef, activeServerUrl, addLayer, toast]);
+  }, [activeServerUrl, onAddLayer, toast]);
 
   return {
     isLoading,
     discoveredLayers,
     fetchCapabilities: fetchWmsCapabilities,
-    addLayer: addWmsLayerToMap,
+    addLayer: addHybridLayerFromLibrary,
     PREDEFINED_SERVERS,
   };
 };
