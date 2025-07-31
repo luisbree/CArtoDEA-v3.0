@@ -9,6 +9,21 @@ import { cn } from '@/lib/utils';
 import type Feature from 'ol/Feature';
 import type { Geometry } from 'ol/geom';
 
+// Data structure for plain attributes extracted from features
+interface PlainFeatureData {
+  id: string;
+  attributes: Record<string, any>;
+}
+
+// Function to extract plain objects, isolating OL objects from the render path
+const extractPlainAttributes = (features: Feature<Geometry>[] | null): PlainFeatureData[] => {
+    if (!features) return [];
+    return features.map(feature => ({
+        id: feature.getId() as string,
+        attributes: feature.getProperties(),
+    }));
+};
+
 
 interface AttributesPanelComponentProps {
   inspectedFeatures: Feature<Geometry>[] | null;
@@ -43,21 +58,23 @@ const AttributesPanelComponent: React.FC<AttributesPanelComponentProps> = ({
   const [currentPage, setCurrentPage] = useState(1);
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'ascending' | 'descending' } | null>(null);
 
+  // Memoize the plain data extraction. This is the key change.
+  const plainFeatureData = useMemo(() => extractPlainAttributes(inspectedFeatures), [inspectedFeatures]);
 
   useEffect(() => {
-    if (inspectedFeatures && inspectedFeatures.length > 0) {
+    if (plainFeatureData.length > 0) {
       setCurrentPage(1);
       setSortConfig(null); // Reset sort on new data
     }
-  }, [inspectedFeatures]);
+  }, [plainFeatureData]);
+
 
   const sortedFeatures = useMemo(() => {
-    if (!inspectedFeatures) return null;
-    let sortableItems = [...inspectedFeatures];
+    let sortableItems = [...plainFeatureData];
     if (sortConfig !== null) {
       sortableItems.sort((a, b) => {
-        const valA = a.get(sortConfig.key);
-        const valB = b.get(sortConfig.key);
+        const valA = a.attributes[sortConfig.key];
+        const valB = b.attributes[sortConfig.key];
         
         if (valA === null || valA === undefined) return 1;
         if (valB === null || valB === undefined) return -1;
@@ -73,7 +90,7 @@ const AttributesPanelComponent: React.FC<AttributesPanelComponentProps> = ({
       });
     }
     return sortableItems;
-  }, [inspectedFeatures, sortConfig]);
+  }, [plainFeatureData, sortConfig]);
 
   const requestSort = (key: string) => {
     let direction: 'ascending' | 'descending' = 'ascending';
@@ -99,14 +116,14 @@ const AttributesPanelComponent: React.FC<AttributesPanelComponentProps> = ({
     }
   };
 
-  const hasFeatures = inspectedFeatures && inspectedFeatures.length > 0;
+  const hasFeatures = plainFeatureData && plainFeatureData.length > 0;
   const totalPages = Math.ceil((sortedFeatures?.length || 0) / ITEMS_PER_PAGE);
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
   const endIndex = startIndex + ITEMS_PER_PAGE;
   const currentVisibleFeatures = sortedFeatures?.slice(startIndex, endIndex) || [];
 
   const allKeys = useMemo(() => Array.from(
-    new Set(currentVisibleFeatures.flatMap(feature => Object.keys(feature.getProperties())))
+    new Set(currentVisibleFeatures.flatMap(item => Object.keys(item.attributes)))
   )
   .filter(key => key !== 'description' && key !== 'gmlgeometry' && key !== 'geometry')
   .sort((a, b) => {
@@ -124,7 +141,7 @@ const AttributesPanelComponent: React.FC<AttributesPanelComponentProps> = ({
 
 
   const panelTitle = layerName && hasFeatures
-    ? `Atributos: ${layerName} (${inspectedFeatures.length})` 
+    ? `Atributos: ${layerName} (${plainFeatureData.length})` 
     : 'Atributos';
 
   return (
@@ -169,10 +186,10 @@ const AttributesPanelComponent: React.FC<AttributesPanelComponentProps> = ({
                         ))}
                       </TableRow>
                     </TableHeader><TableBody>
-                      {currentVisibleFeatures.map((feature) => {
-                        const featureId = feature.getId() as string;
+                      {currentVisibleFeatures.map((item) => {
+                        const featureId = item.id;
                         const isSelected = selectedFeatureIds.includes(featureId);
-                        const attrs = feature.getProperties();
+                        const attrs = item.attributes;
 
                         return (
                           <TableRow 
