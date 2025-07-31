@@ -6,27 +6,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight, ListChecks, Link as LinkIcon, ExternalLink, ArrowUp, ArrowDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type Feature from 'ol/Feature';
-import type { Geometry } from 'ol/geom';
-
-// Data structure for plain attributes extracted from features
-interface PlainFeatureData {
-  id: string;
-  attributes: Record<string, any>;
-}
-
-// Function to extract plain objects, isolating OL objects from the render path
-const extractPlainAttributes = (features: Feature<Geometry>[] | null): PlainFeatureData[] => {
-    if (!features) return [];
-    return features.map(feature => ({
-        id: feature.getId() as string,
-        attributes: feature.getProperties(),
-    }));
-};
+import type { PlainFeatureData } from '@/lib/types';
 
 
 interface AttributesPanelComponentProps {
-  inspectedFeatures: Feature<Geometry>[] | null;
+  plainFeatureData: PlainFeatureData[] | null;
   layerName?: string | null;
   
   panelRef: React.RefObject<HTMLDivElement>;
@@ -44,7 +28,7 @@ interface AttributesPanelComponentProps {
 const ITEMS_PER_PAGE = 50;
 
 const AttributesPanelComponent: React.FC<AttributesPanelComponentProps> = ({
-  inspectedFeatures,
+  plainFeatureData,
   layerName,
   panelRef,
   isCollapsed,
@@ -58,19 +42,18 @@ const AttributesPanelComponent: React.FC<AttributesPanelComponentProps> = ({
   const [currentPage, setCurrentPage] = useState(1);
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'ascending' | 'descending' } | null>(null);
 
-  // Memoize the plain data extraction. This is the key change.
-  const plainFeatureData = useMemo(() => extractPlainAttributes(inspectedFeatures), [inspectedFeatures]);
+  const featureData = useMemo(() => plainFeatureData || [], [plainFeatureData]);
 
   useEffect(() => {
-    if (plainFeatureData.length > 0) {
+    if (featureData.length > 0) {
       setCurrentPage(1);
       setSortConfig(null); // Reset sort on new data
     }
-  }, [plainFeatureData]);
+  }, [featureData]);
 
 
   const sortedFeatures = useMemo(() => {
-    let sortableItems = [...plainFeatureData];
+    let sortableItems = [...featureData];
     if (sortConfig !== null) {
       sortableItems.sort((a, b) => {
         const valA = a.attributes[sortConfig.key];
@@ -90,7 +73,7 @@ const AttributesPanelComponent: React.FC<AttributesPanelComponentProps> = ({
       });
     }
     return sortableItems;
-  }, [plainFeatureData, sortConfig]);
+  }, [featureData, sortConfig]);
 
   const requestSort = (key: string) => {
     let direction: 'ascending' | 'descending' = 'ascending';
@@ -116,7 +99,7 @@ const AttributesPanelComponent: React.FC<AttributesPanelComponentProps> = ({
     }
   };
 
-  const hasFeatures = plainFeatureData && plainFeatureData.length > 0;
+  const hasFeatures = featureData && featureData.length > 0;
   const totalPages = Math.ceil((sortedFeatures?.length || 0) / ITEMS_PER_PAGE);
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
   const endIndex = startIndex + ITEMS_PER_PAGE;
@@ -141,7 +124,7 @@ const AttributesPanelComponent: React.FC<AttributesPanelComponentProps> = ({
 
 
   const panelTitle = layerName && hasFeatures
-    ? `Atributos: ${layerName} (${plainFeatureData.length})` 
+    ? `Atributos: ${layerName} (${featureData.length})` 
     : 'Atributos';
 
   return (

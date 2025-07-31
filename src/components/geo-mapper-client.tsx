@@ -53,7 +53,7 @@ import { useWfsLibrary } from '@/hooks/wfs-library/useWfsLibrary';
 import { useOsmQuery } from '@/hooks/osm-integration/useOsmQuery';
 import { useToast } from "@/hooks/use-toast";
 
-import type { OSMCategoryConfig, GeoServerDiscoveredLayer, BaseLayerOptionForSelect, MapLayer, ChatMessage, BaseLayerSettings, NominatimResult } from '@/lib/types';
+import type { OSMCategoryConfig, GeoServerDiscoveredLayer, BaseLayerOptionForSelect, MapLayer, ChatMessage, BaseLayerSettings, NominatimResult, PlainFeatureData } from '@/lib/types';
 import { chatWithMapAssistant, type MapAssistantOutput } from '@/ai/flows/find-layer-flow';
 import { searchTrelloCard } from '@/ai/flows/trello-actions';
 import { authenticateWithGee } from '@/ai/flows/gee-flow';
@@ -857,7 +857,7 @@ export default function GeoMapperClient() {
               featureInspectionHook.clearSelection(); 
             }}
             onMouseDownHeader={(e) => handlePanelMouseDown(e, 'attributes')}
-            inspectedFeatures={featureInspectionHook.inspectedFeatures}
+            plainFeatureData={featureInspectionHook.inspectedFeatureData}
             layerName={featureInspectionHook.currentInspectedLayerName}
             style={{ top: `${panels.attributes.position.y}px`, left: `${panels.attributes.position.x}px`, zIndex: panels.attributes.zIndex }}
             selectedFeatureIds={featureInspectionHook.selectedFeatures.map(f => f.getId() as string)}

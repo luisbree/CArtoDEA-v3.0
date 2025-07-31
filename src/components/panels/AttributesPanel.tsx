@@ -3,14 +3,11 @@
 
 import React from 'react';
 import AttributesPanelComponent from '../feature-attributes-panel';
-import type Feature from 'ol/Feature';
-import type { Geometry } from 'ol/geom';
+import type { PlainFeatureData } from '@/lib/types';
 
-// This is the new wrapper component that will be imported by GeoMapperClient.
-// It ensures that the props are passed correctly within a client-side context.
 
 interface AttributesPanelProps {
-  inspectedFeatures: Feature<Geometry>[] | null;
+  plainFeatureData: PlainFeatureData[] | null;
   layerName?: string | null;
   
   panelRef: React.RefObject<HTMLDivElement>;

@@ -66,3 +66,8 @@ export interface NominatimResult {
   importance: number;
   icon?: string;
 }
+
+export interface PlainFeatureData {
+  id: string;
+  attributes: Record<string, any>;
+}

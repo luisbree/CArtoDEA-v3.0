@@ -11,6 +11,7 @@ import type { Geometry } from 'ol/geom';
 import Select, { type SelectEvent } from 'ol/interaction/Select';
 import DragBox from 'ol/interaction/DragBox';
 import { singleClick } from 'ol/events/condition';
+import type { PlainFeatureData } from '@/lib/types';
 
 interface UseFeatureInspectionProps {
   mapRef: React.RefObject<Map | null>;
@@ -35,6 +36,14 @@ const highlightStyle = new Style({
   zIndex: Infinity,
 });
 
+const extractPlainAttributes = (features: Feature<Geometry>[]): PlainFeatureData[] => {
+    if (!features) return [];
+    return features.map(feature => ({
+        id: feature.getId() as string,
+        attributes: feature.getProperties(),
+    }));
+};
+
 export const useFeatureInspection = ({
   mapRef,
   mapElementRef,
@@ -45,7 +54,7 @@ export const useFeatureInspection = ({
   const [isInspectModeActive, setIsInspectModeActive] = useState(false);
   const [selectionMode, setSelectionModeInternal] = useState<'click' | 'box'>('click');
   const [selectedFeatures, setSelectedFeatures] = useState<Feature<Geometry>[]>([]);
-  const [inspectedFeatures, setInspectedFeatures] = useState<Feature<Geometry>[]>([]);
+  const [inspectedFeatureData, setInspectedFeatureData] = useState<PlainFeatureData[] | null>(null);
   const [currentInspectedLayerName, setCurrentInspectedLayerName] = useState<string | null>(null);
 
   const selectInteractionRef = useRef<Select | null>(null);
@@ -59,12 +68,12 @@ export const useFeatureInspection = ({
 
   const processAndDisplayFeatures = useCallback((features: Feature<Geometry>[], layerName: string) => {
     if (features.length === 0) {
-      setInspectedFeatures([]);
+      setInspectedFeatureData([]);
       setCurrentInspectedLayerName(null);
       return;
     }
     
-    setInspectedFeatures(features);
+    setInspectedFeatureData(extractPlainAttributes(features));
     setCurrentInspectedLayerName(layerName);
     if (features.length > 0) {
        toast({ description: `${features.length} entidad(es) de "${layerName}" inspeccionada(s).` });
@@ -78,7 +87,7 @@ export const useFeatureInspection = ({
       selectInteractionRef.current.getFeatures().clear();
     }
     setSelectedFeatures([]);
-    setInspectedFeatures([]);
+    setInspectedFeatureData(null);
     setCurrentInspectedLayerName(null);
   }, []);
 
@@ -223,7 +232,7 @@ export const useFeatureInspection = ({
     selectionMode,
     setSelectionMode,
     selectedFeatures,
-    inspectedFeatures,
+    inspectedFeatureData,
     currentInspectedLayerName,
     clearSelection,
     processAndDisplayFeatures, // Still needed for "Show Layer Table" action
