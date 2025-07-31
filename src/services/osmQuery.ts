@@ -18,7 +18,7 @@ import { nanoid } from 'nanoid';
  */
 export async function queryOsmFeaturesByPoint(
     coordinate: Coordinate,
-    mapProjection: ProjectionLike,
+    mapProjection: string,
 ): Promise<Feature<Geometry>[]> {
 
     const mapProj = getProjection(mapProjection);
@@ -29,12 +29,15 @@ export async function queryOsmFeaturesByPoint(
     const coord4326 = transform(coordinate, mapProj, 'EPSG:4326');
     const [lon, lat] = coord4326;
 
-    // 'around' query looks for features within a radius of the given point (in meters).
+    // Use 'is_in' to find areas the point is inside, and 'around' for nearby points/lines.
     const radius = 10; // 10-meter radius
     const overpassQuery = `
       [out:json][timeout:25];
       (
+        // Find nodes, ways, relations around the point
         nwr(around:${radius},${lat},${lon});
+        // Find areas the point is inside
+        is_in(${lat},${lon});
       );
       out geom;
     `;
@@ -76,11 +79,13 @@ export async function queryOsmFeaturesByPoint(
             if (!feature.getId()) {
                 feature.setId(nanoid());
             }
-            // Optional: Remove circular references or complex objects from properties
-            // if they cause issues with state management or display.
+            // Sanitize properties to prevent passing complex objects that Next.js dislikes.
+            // The 'memberOf' property is a common source of circular/complex structures.
             const props = feature.getProperties();
-            delete props.geometry;
-            delete props.memberOf; // This can be a complex object
+            delete props.geometry; // geometry is already handled by OpenLayers
+            if (props.memberOf) {
+              delete props.memberOf;
+            }
             feature.setProperties(props, true);
         });
 
