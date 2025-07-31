@@ -31,7 +31,6 @@ interface UseLayerManagerProps {
   drawingSourceRef: React.RefObject<VectorSource>;
   onShowTableRequest: (features: Feature[], layerName: string) => void;
   updateGeoServerDiscoveredLayerState: (layerName: string, added: boolean, type: 'wms' | 'wfs') => void;
-  selectedFeaturesForExtraction: Feature<Geometry>[];
   clearSelectionAfterExtraction: () => void;
   setIsWfsLoading: (isLoading: boolean) => void;
 }
@@ -64,7 +63,6 @@ export const useLayerManager = ({
   drawingSourceRef,
   onShowTableRequest,
   updateGeoServerDiscoveredLayerState,
-  selectedFeaturesForExtraction,
   clearSelectionAfterExtraction,
   setIsWfsLoading,
 }: UseLayerManagerProps) => {
@@ -256,37 +254,39 @@ export const useLayerManager = ({
   }, [mapRef, addLayer, toast]);
 
   const removeLayers = useCallback((layerIds: string[]) => {
-    if (!mapRef.current || layerIds.length === 0) return;
+    setLayers(prevLayers => {
+        if (!mapRef.current || layerIds.length === 0) return prevLayers;
 
-    const layersToRemove = layers.filter(l => layerIds.includes(l.id));
-    if (layersToRemove.length === 0) return;
-
-    layersToRemove.forEach(layer => {
-      mapRef.current!.removeLayer(layer.olLayer);
-      
-      const linkedWmsId = layer.olLayer.get('linkedWmsLayerId');
-      if (linkedWmsId) {
-        const wmsLayer = mapRef.current?.getLayers().getArray().find(l => l.get('id') === linkedWmsId);
-        if (wmsLayer) {
-          mapRef.current?.removeLayer(wmsLayer);
+        const layersToRemove = prevLayers.filter(l => layerIds.includes(l.id));
+        if (layersToRemove.length === 0) return prevLayers;
+    
+        layersToRemove.forEach(layer => {
+          mapRef.current!.removeLayer(layer.olLayer);
+          
+          const linkedWmsId = layer.olLayer.get('linkedWmsLayerId');
+          if (linkedWmsId) {
+            const wmsLayer = mapRef.current?.getLayers().getArray().find(l => l.get('id') === linkedWmsId);
+            if (wmsLayer) {
+              mapRef.current?.removeLayer(wmsLayer);
+            }
+          }
+    
+          const gsLayerName = layer.olLayer.get('gsLayerName');
+          if (gsLayerName) {
+            updateGeoServerDiscoveredLayerState(gsLayerName, false, 'wfs');
+            updateGeoServerDiscoveredLayerState(gsLayerName, false, 'wms');
+          }
+        });
+    
+        if (layersToRemove.length === 1) {
+          toast({ description: `Capa "${layersToRemove[0].name}" eliminada.` });
+        } else {
+          toast({ description: `${layersToRemove.length} capa(s) eliminada(s).` });
         }
-      }
-
-      const gsLayerName = layer.olLayer.get('gsLayerName');
-      if (gsLayerName) {
-        updateGeoServerDiscoveredLayerState(gsLayerName, false, 'wfs');
-        updateGeoServerDiscoveredLayerState(gsLayerName, false, 'wms');
-      }
+        
+        return prevLayers.filter(l => !layerIds.includes(l.id));
     });
-
-    setLayers(prev => prev.filter(l => !layerIds.includes(l.id)));
-
-    if (layersToRemove.length === 1) {
-      toast({ description: `Capa "${layersToRemove[0].name}" eliminada.` });
-    } else {
-      toast({ description: `${layersToRemove.length} capa(s) eliminada(s).` });
-    }
-  }, [mapRef, layers, toast, updateGeoServerDiscoveredLayerState]);
+  }, [mapRef, toast, updateGeoServerDiscoveredLayerState]);
 
   const removeLayer = useCallback((layerId: string) => {
     removeLayers([layerId]);
@@ -356,91 +356,94 @@ export const useLayerManager = ({
   }, [mapRef]);
 
   const changeLayerStyle = useCallback((layerId: string, styleOptions: { strokeColor?: string; fillColor?: string; lineStyle?: 'solid' | 'dashed' | 'dotted'; lineWidth?: number }) => {
-    const layer = layers.find(l => l.id === layerId);
-    if (!layer || !(layer.olLayer instanceof VectorLayer)) {
-        toast({ description: "Solo se puede cambiar el estilo de capas vectoriales." });
-        return;
-    }
-
-    const linkedWmsId = layer.olLayer.get('linkedWmsLayerId');
-    if (linkedWmsId && mapRef.current) {
-        const wmsLayer = mapRef.current.getLayers().getArray().find(l => l.get('id') === linkedWmsId);
-        if (wmsLayer) {
-            wmsLayer.setVisible(false);
-            toast({ description: `Se ocultó la capa WMS para mostrar el nuevo estilo.` });
+    setLayers(prevLayers => {
+        const layer = prevLayers.find(l => l.id === layerId);
+        if (!layer || !(layer.olLayer instanceof VectorLayer)) {
+            toast({ description: "Solo se puede cambiar el estilo de capas vectoriales." });
+            return prevLayers;
         }
-    }
-
-    const olLayer = layer.olLayer as VectorLayer<any>;
-    const existingStyle = olLayer.getStyle();
-    let baseStyle: Style;
-
-    if (existingStyle instanceof Style) {
-        baseStyle = existingStyle.clone();
-    } else if (Array.isArray(existingStyle) && existingStyle.length > 0 && existingStyle[0] instanceof Style) {
-        baseStyle = existingStyle[0].clone();
-    } else {
-        baseStyle = new Style({
-            stroke: new Stroke({ color: '#3399CC', width: 2 }),
-            fill: new Fill({ color: 'rgba(51, 153, 204, 0.2)' }),
-            image: new CircleStyle({
-                radius: 5,
+    
+        const linkedWmsId = layer.olLayer.get('linkedWmsLayerId');
+        if (linkedWmsId && mapRef.current) {
+            const wmsLayer = mapRef.current.getLayers().getArray().find(l => l.get('id') === linkedWmsId);
+            if (wmsLayer) {
+                wmsLayer.setVisible(false);
+                toast({ description: `Se ocultó la capa WMS para mostrar el nuevo estilo.` });
+            }
+        }
+    
+        const olLayer = layer.olLayer as VectorLayer<any>;
+        const existingStyle = olLayer.getStyle();
+        let baseStyle: Style;
+    
+        if (existingStyle instanceof Style) {
+            baseStyle = existingStyle.clone();
+        } else if (Array.isArray(existingStyle) && existingStyle.length > 0 && existingStyle[0] instanceof Style) {
+            baseStyle = existingStyle[0].clone();
+        } else {
+            baseStyle = new Style({
+                stroke: new Stroke({ color: '#3399CC', width: 2 }),
                 fill: new Fill({ color: 'rgba(51, 153, 204, 0.2)' }),
-                stroke: new Stroke({ color: '#3399CC', width: 1 })
-            })
+                image: new CircleStyle({
+                    radius: 5,
+                    fill: new Fill({ color: 'rgba(51, 153, 204, 0.2)' }),
+                    stroke: new Stroke({ color: '#3399CC', width: 1 })
+                })
+            });
+        }
+    
+        const stroke = baseStyle.getStroke() ?? new Stroke();
+        const fill = baseStyle.getFill() ?? new Fill();
+        const image = baseStyle.getImage() instanceof CircleStyle ? baseStyle.getImage().clone() as CircleStyle : new CircleStyle({
+            radius: 5,
+            fill: new Fill({ color: 'rgba(51, 153, 204, 0.2)' }),
+            stroke: new Stroke({ color: '#3399CC', width: 1.5 })
         });
-    }
-
-    const stroke = baseStyle.getStroke() ?? new Stroke();
-    const fill = baseStyle.getFill() ?? new Fill();
-    const image = baseStyle.getImage() instanceof CircleStyle ? baseStyle.getImage().clone() as CircleStyle : new CircleStyle({
-        radius: 5,
-        fill: new Fill({ color: 'rgba(51, 153, 204, 0.2)' }),
-        stroke: new Stroke({ color: '#3399CC', width: 1.5 })
+        
+        let styleChanged = false;
+    
+        if (styleOptions.strokeColor) {
+            const colorHex = colorMap[styleOptions.strokeColor.toLowerCase()];
+            if (colorHex) {
+                styleChanged = true;
+                stroke.setColor(colorHex);
+                if (image.getStroke()) image.getStroke().setColor(colorHex);
+            }
+        }
+    
+        if (styleOptions.fillColor) {
+            const colorHex = colorMap[styleOptions.fillColor.toLowerCase()];
+            if (colorHex) {
+                styleChanged = true;
+                const olColor = asOlColorArray(colorHex);
+                const fillColorRgba = [...olColor.slice(0, 3), 0.6] as [number, number, number, number];
+                fill.setColor(fillColorRgba);
+                if (image.getFill()) image.getFill().setColor(fillColorRgba);
+            }
+        }
+    
+        if (styleOptions.lineWidth) {
+            styleChanged = true;
+            stroke.setWidth(styleOptions.lineWidth);
+            if (image.getStroke()) image.getStroke().setWidth(styleOptions.lineWidth > 3 ? styleOptions.lineWidth / 2 : 1.5);
+        }
+    
+        if (styleOptions.lineStyle) {
+            styleChanged = true;
+            let lineDash: number[] | undefined;
+            if (styleOptions.lineStyle === 'dashed') lineDash = [10, 10];
+            else if (styleOptions.lineStyle === 'dotted') lineDash = [1, 5];
+            stroke.setLineDash(lineDash);
+        }
+        
+        if (styleChanged) {
+            const newStyle = new Style({ stroke, fill, image });
+            olLayer.setStyle(newStyle);
+            toast({ description: `Estilo de la capa "${layer.name}" actualizado.` });
+        }
+        return prevLayers;
     });
-    
-    let styleChanged = false;
-
-    if (styleOptions.strokeColor) {
-        const colorHex = colorMap[styleOptions.strokeColor.toLowerCase()];
-        if (colorHex) {
-            styleChanged = true;
-            stroke.setColor(colorHex);
-            if (image.getStroke()) image.getStroke().setColor(colorHex);
-        }
-    }
-
-    if (styleOptions.fillColor) {
-        const colorHex = colorMap[styleOptions.fillColor.toLowerCase()];
-        if (colorHex) {
-            styleChanged = true;
-            const olColor = asOlColorArray(colorHex);
-            const fillColorRgba = [...olColor.slice(0, 3), 0.6] as [number, number, number, number];
-            fill.setColor(fillColorRgba);
-            if (image.getFill()) image.getFill().setColor(fillColorRgba);
-        }
-    }
-
-    if (styleOptions.lineWidth) {
-        styleChanged = true;
-        stroke.setWidth(styleOptions.lineWidth);
-        if (image.getStroke()) image.getStroke().setWidth(styleOptions.lineWidth > 3 ? styleOptions.lineWidth / 2 : 1.5);
-    }
-
-    if (styleOptions.lineStyle) {
-        styleChanged = true;
-        let lineDash: number[] | undefined;
-        if (styleOptions.lineStyle === 'dashed') lineDash = [10, 10];
-        else if (styleOptions.lineStyle === 'dotted') lineDash = [1, 5];
-        stroke.setLineDash(lineDash);
-    }
-    
-    if (styleChanged) {
-        const newStyle = new Style({ stroke, fill, image });
-        olLayer.setStyle(newStyle);
-        toast({ description: `Estilo de la capa "${layer.name}" actualizado.` });
-    }
-  }, [layers, toast, mapRef]);
+  }, [toast, mapRef]);
 
   const zoomToLayerExtent = useCallback((layerId: string) => {
     if (!mapRef.current) return;
@@ -478,21 +481,24 @@ export const useLayerManager = ({
   }, [mapRef, layers, toast]);
 
   const handleShowLayerTable = useCallback((layerId: string) => {
-    const layer = layers.find(l => l.id === layerId);
-    if (layer && layer.olLayer instanceof VectorLayer) {
-        const source = layer.olLayer.getSource();
-        if (source) {
-            const features = source.getFeatures();
-            if (features.length > 0) {
-                onShowTableRequest(features, layer.name);
-            } else {
-                toast({ description: `La capa "${layer.name}" no tiene entidades para mostrar en la tabla.` });
+    setLayers(prevLayers => {
+        const layer = prevLayers.find(l => l.id === layerId);
+        if (layer && layer.olLayer instanceof VectorLayer) {
+            const source = layer.olLayer.getSource();
+            if (source) {
+                const features = source.getFeatures();
+                if (features.length > 0) {
+                    onShowTableRequest(features, layer.name);
+                } else {
+                    toast({ description: `La capa "${layer.name}" no tiene entidades para mostrar en la tabla.` });
+                }
             }
+        } else {
+            toast({ description: "Solo se puede mostrar la tabla de atributos para capas vectoriales." });
         }
-    } else {
-        toast({ description: "Solo se puede mostrar la tabla de atributos para capas vectoriales." });
-    }
-  }, [layers, onShowTableRequest, toast]);
+        return prevLayers;
+    });
+  }, [onShowTableRequest, toast]);
 
   const renameLayer = useCallback((layerId: string, newName: string) => {
     setLayers(prev =>
@@ -512,101 +518,114 @@ export const useLayerManager = ({
   }, [toast]);
   
   const handleExtractByPolygon = useCallback((layerIdToExtract: string, onSuccess?: () => void) => {
-    const targetLayer = layers.find(l => l.id === layerIdToExtract) as VectorMapLayer | undefined;
-    const drawingFeatures = drawingSourceRef.current?.getFeatures() ?? [];
-    const polygonFeature = drawingFeatures.find(f => f.getGeometry()?.getType() === 'Polygon');
-
-    if (!targetLayer || !polygonFeature) {
-        toast({ description: "Se requiere una capa vectorial y un polígono dibujado." });
-        return;
-    }
-    const polygonGeometry = polygonFeature.getGeometry();
-    if (!polygonGeometry) return;
-
-    const targetSource = targetLayer.olLayer.getSource();
-    if (!targetSource) return;
-
-    const intersectingFeatures = targetSource.getFeatures().filter(feature => {
-        const featureGeometry = feature.getGeometry();
-        return featureGeometry && polygonGeometry.intersectsExtent(featureGeometry.getExtent());
-    });
-
-    if (intersectingFeatures.length === 0) {
-        toast({ description: "No se encontraron entidades dentro del polígono." });
-        return;
-    }
+    setLayers(prevLayers => {
+        const targetLayer = prevLayers.find(l => l.id === layerIdToExtract) as VectorMapLayer | undefined;
+        const drawingFeatures = drawingSourceRef.current?.getFeatures() ?? [];
+        const polygonFeature = drawingFeatures.find(f => f.getGeometry()?.getType() === 'Polygon');
     
-    const newSourceName = `Extracción de ${targetLayer.name}`;
-    const newSource = new VectorSource({ features: intersectingFeatures.map(f => f.clone()) });
-    const newLayer = new VectorLayer({
-        source: newSource,
-        properties: {
-            id: `extract-${targetLayer.id}-${nanoid()}`,
+        if (!targetLayer || !polygonFeature) {
+            toast({ description: "Se requiere una capa vectorial y un polígono dibujado." });
+            return prevLayers;
+        }
+        const polygonGeometry = polygonFeature.getGeometry();
+        if (!polygonGeometry) return prevLayers;
+    
+        const targetSource = targetLayer.olLayer.getSource();
+        if (!targetSource) return prevLayers;
+    
+        const intersectingFeatures = targetSource.getFeatures().filter(feature => {
+            const featureGeometry = feature.getGeometry();
+            return featureGeometry && polygonGeometry.intersectsExtent(featureGeometry.getExtent());
+        });
+    
+        if (intersectingFeatures.length === 0) {
+            toast({ description: "No se encontraron entidades dentro del polígono." });
+            return prevLayers;
+        }
+        
+        const newSourceName = `Extracción de ${targetLayer.name}`;
+        const newSource = new VectorSource({ features: intersectingFeatures.map(f => f.clone()) });
+        const newLayerId = `extract-${targetLayer.id}-${nanoid()}`;
+        const newOlLayer = new VectorLayer({
+            source: newSource,
+            properties: {
+                id: newLayerId,
+                name: newSourceName,
+                type: 'vector'
+            },
+            style: targetLayer.olLayer.getStyle()
+        });
+        
+        const newMapLayer: MapLayer = {
+            id: newLayerId,
             name: newSourceName,
+            olLayer: newOlLayer,
+            visible: true,
+            opacity: 1,
             type: 'vector'
-        },
-        style: targetLayer.olLayer.getStyle()
-    });
+        };
 
-    addLayer({
-        id: newLayer.get('id'),
-        name: newSourceName,
-        olLayer: newLayer,
-        visible: true,
-        opacity: 1,
-        type: 'vector'
+        mapRef.current?.addLayer(newOlLayer);
+        toast({ description: `${intersectingFeatures.length} entidades extraídas a una nueva capa.` });
+        onSuccess?.();
+        
+        return [newMapLayer, ...prevLayers];
     });
-    toast({ description: `${intersectingFeatures.length} entidades extraídas a una nueva capa.` });
-    onSuccess?.();
-  }, [layers, drawingSourceRef, addLayer, toast]);
+  }, [drawingSourceRef, mapRef, toast]);
   
-  const handleExtractBySelection = useCallback((onSuccess?: () => void) => {
-    if (selectedFeaturesForExtraction.length === 0) {
-        toast({ description: "No hay entidades seleccionadas para extraer." });
-        return;
-    }
-
-    const clonedFeatures = selectedFeaturesForExtraction.map(f => f.clone());
+  const handleExtractBySelection = useCallback((selectedFeaturesForExtraction: Feature<Geometry>[], onSuccess?: () => void) => {
+    setLayers(prevLayers => {
+        if (selectedFeaturesForExtraction.length === 0) {
+            toast({ description: "No hay entidades seleccionadas para extraer." });
+            return prevLayers;
+        }
     
-    let style;
-    let originalLayerName = 'Selección';
-    const firstFeature = selectedFeaturesForExtraction[0];
-
-    if (firstFeature) {
-      for (const layer of layers) {
-        if (layer.olLayer instanceof VectorLayer) {
-          const source = layer.olLayer.getSource();
-          if (source && source.hasFeature(firstFeature)) {
-            style = layer.olLayer.getStyle();
-            originalLayerName = layer.name;
-            break;
+        const clonedFeatures = selectedFeaturesForExtraction.map(f => f.clone());
+        
+        let style;
+        let originalLayerName = 'Selección';
+        const firstFeature = selectedFeaturesForExtraction[0];
+    
+        if (firstFeature) {
+          for (const layer of prevLayers) {
+            if (layer.olLayer instanceof VectorLayer) {
+              const source = layer.olLayer.getSource();
+              if (source && source.hasFeature(firstFeature)) {
+                style = layer.olLayer.getStyle();
+                originalLayerName = layer.name;
+                break;
+              }
+            }
           }
         }
-      }
-    }
-
-    const newSourceName = `Extraidas_${originalLayerName}`;
-    const newSource = new VectorSource({ features: clonedFeatures });
-    const newLayer = new VectorLayer({
-        source: newSource,
-        properties: { id: `extract-sel-${nanoid()}`, name: newSourceName, type: 'vector' },
-        style: style 
-    });
-
-    addLayer({
-        id: newLayer.get('id'),
-        name: newSourceName,
-        olLayer: newLayer,
-        visible: true,
-        opacity: 1,
-        type: 'vector'
-    });
-
-    toast({ description: `${clonedFeatures.length} entidades extraídas a la capa "${newSourceName}".` });
     
-    clearSelectionAfterExtraction();
-    onSuccess?.();
-  }, [selectedFeaturesForExtraction, layers, addLayer, toast, clearSelectionAfterExtraction]);
+        const newSourceName = `Extraidas_${originalLayerName}`;
+        const newLayerId = `extract-sel-${nanoid()}`;
+        const newSource = new VectorSource({ features: clonedFeatures });
+        const newOlLayer = new VectorLayer({
+            source: newSource,
+            properties: { id: newLayerId, name: newSourceName, type: 'vector' },
+            style: style 
+        });
+    
+        const newMapLayer: MapLayer = {
+            id: newLayerId,
+            name: newSourceName,
+            olLayer: newOlLayer,
+            visible: true,
+            opacity: 1,
+            type: 'vector'
+        };
+    
+        mapRef.current?.addLayer(newOlLayer);
+        toast({ description: `${clonedFeatures.length} entidades extraídas a la capa "${newSourceName}".` });
+        
+        clearSelectionAfterExtraction();
+        onSuccess?.();
+        
+        return [newMapLayer, ...prevLayers];
+    });
+  }, [mapRef, toast, clearSelectionAfterExtraction]);
   
   const handleExportLayer = useCallback(async (layerId: string, format: 'geojson' | 'kml' | 'shp') => {
     const layer = layers.find(l => l.id === layerId) as VectorMapLayer | undefined;
@@ -688,39 +707,44 @@ export const useLayerManager = ({
             return;
         }
 
-        const existingLayer = layers.find(l => l.id === 'sentinel-footprints') as VectorMapLayer | undefined;
-        if (existingLayer) {
-            existingLayer.olLayer.getSource()?.clear();
-            existingLayer.olLayer.getSource()?.addFeatures(features);
-            toast({ description: `Capa de Sentinel-2 actualizada con ${features.length} footprints.` });
-        } else {
-            const sentinelSource = new VectorSource({ features });
-            const sentinelLayer = new VectorLayer({
-                source: sentinelSource,
-                style: new Style({
-                    stroke: new Stroke({ color: 'rgba(255, 0, 255, 1.0)', width: 2 }),
-                    fill: new Fill({ color: 'rgba(255, 0, 255, 0.1)' }),
-                }),
-                properties: { id: 'sentinel-footprints', name: 'Footprints Sentinel-2', type: 'sentinel' }
-            });
-
-            addLayer({
-                id: 'sentinel-footprints',
-                name: 'Footprints Sentinel-2',
-                olLayer: sentinelLayer,
-                visible: true,
-                opacity: 1,
-                type: 'sentinel'
-            });
-            toast({ description: `${features.length} footprints de Sentinel-2 añadidos al mapa.` });
-        }
+        setLayers(prevLayers => {
+            const existingLayer = prevLayers.find(l => l.id === 'sentinel-footprints') as VectorMapLayer | undefined;
+            if (existingLayer) {
+                existingLayer.olLayer.getSource()?.clear();
+                existingLayer.olLayer.getSource()?.addFeatures(features);
+                toast({ description: `Capa de Sentinel-2 actualizada con ${features.length} footprints.` });
+                return [...prevLayers]; // Return a new array to trigger re-render
+            } else {
+                const sentinelSource = new VectorSource({ features });
+                const sentinelLayer = new VectorLayer({
+                    source: sentinelSource,
+                    style: new Style({
+                        stroke: new Stroke({ color: 'rgba(255, 0, 255, 1.0)', width: 2 }),
+                        fill: new Fill({ color: 'rgba(255, 0, 255, 0.1)' }),
+                    }),
+                    properties: { id: 'sentinel-footprints', name: 'Footprints Sentinel-2', type: 'sentinel' }
+                });
+                
+                const newMapLayer = {
+                    id: 'sentinel-footprints',
+                    name: 'Footprints Sentinel-2',
+                    olLayer: sentinelLayer,
+                    visible: true,
+                    opacity: 1,
+                    type: 'sentinel'
+                };
+                mapRef.current?.addLayer(sentinelLayer);
+                toast({ description: `${features.length} footprints de Sentinel-2 añadidos al mapa.` });
+                return [newMapLayer, ...prevLayers];
+            }
+        });
     } catch (error: any) {
         console.error("Error finding Sentinel-2 footprints:", error);
         toast({ description: `Error al buscar escenas: ${error.message}` });
     } finally {
         setIsFindingSentinelFootprints(false);
     }
-  }, [mapRef, layers, addLayer, toast]);
+  }, [mapRef, toast]);
 
   const clearSentinel2FootprintsLayer = useCallback(() => {
     const sentinelLayer = layers.find(l => l.id === 'sentinel-footprints');
@@ -744,39 +768,44 @@ export const useLayerManager = ({
             return;
         }
 
-        const existingLayer = layers.find(l => l.id === 'landsat-footprints') as VectorMapLayer | undefined;
-        if (existingLayer) {
-            existingLayer.olLayer.getSource()?.clear();
-            existingLayer.olLayer.getSource()?.addFeatures(features);
-            toast({ description: `Capa de Landsat actualizada con ${features.length} footprints.` });
-        } else {
-            const landsatSource = new VectorSource({ features });
-            const landsatLayer = new VectorLayer({
-                source: landsatSource,
-                style: new Style({
-                    stroke: new Stroke({ color: 'rgba(255, 255, 0, 1.0)', width: 2 }),
-                    fill: new Fill({ color: 'rgba(255, 255, 0, 0.1)' }),
-                }),
-                properties: { id: 'landsat-footprints', name: 'Footprints Landsat', type: 'landsat' }
-            });
-
-            addLayer({
-                id: 'landsat-footprints',
-                name: 'Footprints Landsat',
-                olLayer: landsatLayer,
-                visible: true,
-                opacity: 1,
-                type: 'landsat'
-            });
-            toast({ description: `${features.length} footprints de Landsat añadidos al mapa.` });
-        }
+        setLayers(prevLayers => {
+            const existingLayer = prevLayers.find(l => l.id === 'landsat-footprints') as VectorMapLayer | undefined;
+            if (existingLayer) {
+                existingLayer.olLayer.getSource()?.clear();
+                existingLayer.olLayer.getSource()?.addFeatures(features);
+                toast({ description: `Capa de Landsat actualizada con ${features.length} footprints.` });
+                return [...prevLayers];
+            } else {
+                const landsatSource = new VectorSource({ features });
+                const landsatLayer = new VectorLayer({
+                    source: landsatSource,
+                    style: new Style({
+                        stroke: new Stroke({ color: 'rgba(255, 255, 0, 1.0)', width: 2 }),
+                        fill: new Fill({ color: 'rgba(255, 255, 0, 0.1)' }),
+                    }),
+                    properties: { id: 'landsat-footprints', name: 'Footprints Landsat', type: 'landsat' }
+                });
+    
+                const newMapLayer = {
+                    id: 'landsat-footprints',
+                    name: 'Footprints Landsat',
+                    olLayer: landsatLayer,
+                    visible: true,
+                    opacity: 1,
+                    type: 'landsat'
+                };
+                mapRef.current?.addLayer(landsatLayer);
+                toast({ description: `${features.length} footprints de Landsat añadidos al mapa.` });
+                return [newMapLayer, ...prevLayers];
+            }
+        });
     } catch (error: any) {
         console.error("Error finding Landsat footprints:", error);
         toast({ description: `Error al buscar escenas de Landsat: ${error.message}` });
     } finally {
         setIsFindingLandsatFootprints(false);
     }
-  }, [mapRef, layers, addLayer, toast]);
+  }, [mapRef, toast]);
 
   const clearLandsatFootprintsLayer = useCallback(() => {
     const landsatLayer = layers.find(l => l.id === 'landsat-footprints');
@@ -814,5 +843,3 @@ export const useLayerManager = ({
     clearLandsatFootprintsLayer,
   };
 };
-
-    

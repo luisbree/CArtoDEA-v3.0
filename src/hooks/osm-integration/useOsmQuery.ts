@@ -6,12 +6,13 @@ import type { Map, MapBrowserEvent } from 'ol';
 import { useToast } from "@/hooks/use-toast";
 import type Feature from 'ol/Feature';
 import { queryOsmFeaturesByPoint } from '@/services/osmQuery';
+import type { Geometry } from 'ol/geom';
 
 interface UseOsmQueryProps {
     mapRef: React.RefObject<Map | null>;
     mapElementRef: React.RefObject<HTMLDivElement | null>;
     isMapReady: boolean;
-    onResults: (features: Feature[], layerName: string) => void;
+    onResults: (features: Feature<Geometry>[], layerName: string) => void;
 }
 
 export const useOsmQuery = ({

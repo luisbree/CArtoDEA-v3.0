@@ -36,14 +36,6 @@ const highlightStyle = new Style({
   zIndex: Infinity,
 });
 
-const extractPlainAttributes = (features: Feature<Geometry>[]): PlainFeatureData[] => {
-    if (!features) return [];
-    return features.map(feature => ({
-        id: feature.getId() as string,
-        attributes: feature.getProperties(),
-    }));
-};
-
 export const useFeatureInspection = ({
   mapRef,
   mapElementRef,
@@ -65,18 +57,25 @@ export const useFeatureInspection = ({
     onNewSelectionRef.current = onNewSelection;
   }, [onNewSelection]);
 
+  const extractPlainAttributes = (features: Feature<Geometry>[]): PlainFeatureData[] => {
+    if (!features) return [];
+    return features.map(feature => ({
+        id: feature.getId() as string,
+        attributes: feature.getProperties(),
+    }));
+  };
 
-  const processAndDisplayFeatures = useCallback((features: Feature<Geometry>[], layerName: string) => {
-    if (features.length === 0) {
+  const processAndDisplayFeatures = useCallback((plainData: PlainFeatureData[], layerName: string) => {
+    if (plainData.length === 0) {
       setInspectedFeatureData([]);
       setCurrentInspectedLayerName(null);
       return;
     }
     
-    setInspectedFeatureData(extractPlainAttributes(features));
+    setInspectedFeatureData(plainData);
     setCurrentInspectedLayerName(layerName);
-    if (features.length > 0) {
-       toast({ description: `${features.length} entidad(es) de "${layerName}" inspeccionada(s).` });
+    if (plainData.length > 0) {
+       toast({ description: `${plainData.length} entidad(es) de "${layerName}" inspeccionada(s).` });
     }
     
     onNewSelectionRef.current();
@@ -174,7 +173,8 @@ export const useFeatureInspection = ({
         setSelectedFeatures(newlySelectedFeatures);
 
         if (selectionMode === 'click') { // INSPECTION by click
-            processAndDisplayFeatures(newlySelectedFeatures, 'Inspección');
+            const plainData = extractPlainAttributes(newlySelectedFeatures);
+            processAndDisplayFeatures(plainData, 'Inspección');
         } else { // SELECTION by click
             if (e.selected.length > 0 || e.deselected.length > 0) {
                toast({ description: `${newlySelectedFeatures.length} entidad(es) seleccionada(s).` });
@@ -210,7 +210,8 @@ export const useFeatureInspection = ({
         setSelectedFeatures(featuresInBox); // Update main selection state
 
         if (selectionMode === 'click') { // INSPECTION by box
-            processAndDisplayFeatures(featuresInBox, 'Inspección de Área');
+            const plainData = extractPlainAttributes(featuresInBox);
+            processAndDisplayFeatures(plainData, 'Inspección de Área');
         } else { // SELECTION by box
             toast({ description: `${featuresInBox.length} entidad(es) seleccionada(s).` });
         }
@@ -235,7 +236,8 @@ export const useFeatureInspection = ({
     inspectedFeatureData,
     currentInspectedLayerName,
     clearSelection,
-    processAndDisplayFeatures, // Still needed for "Show Layer Table" action
+    processAndDisplayFeatures,
     selectFeaturesById,
+    extractPlainAttributes, // Export helper function
   };
 };

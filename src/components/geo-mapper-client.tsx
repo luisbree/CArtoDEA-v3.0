@@ -22,6 +22,8 @@ import { Map as OLMap, View } from 'ol';
 import TileLayer from 'ol/layer/Tile';
 import type Layer from 'ol/layer/Layer';
 import type { Source as TileSource } from 'ol/source';
+import type Feature from 'ol/Feature';
+import type { Geometry } from 'ol/geom';
 
 
 import MapView, { BASE_LAYER_DEFINITIONS } from '@/components/map-view';
@@ -216,7 +218,6 @@ export default function GeoMapperClient() {
     drawingSourceRef,
     onShowTableRequest: featureInspectionHook.processAndDisplayFeatures,
     updateGeoServerDiscoveredLayerState: updateDiscoveredLayerState,
-    selectedFeaturesForExtraction: featureInspectionHook.selectedFeatures,
     clearSelectionAfterExtraction: featureInspectionHook.clearSelection,
     setIsWfsLoading,
   });
@@ -231,11 +232,21 @@ export default function GeoMapperClient() {
     onAddLayer: layerManagerHook.handleAddHybridLayer,
   });
 
+  const handleOsmQueryResults = (features: Feature<Geometry>[], layerName: string) => {
+    const plainData = featureInspectionHook.extractPlainAttributes(features);
+    featureInspectionHook.processAndDisplayFeatures(plainData, layerName);
+    
+    // Auto-open the panel if it was minimized
+    if (panels.attributes.isMinimized) {
+        togglePanelMinimize('attributes');
+    }
+  };
+  
   const osmQueryHook = useOsmQuery({
     mapRef,
     mapElementRef,
     isMapReady,
-    onResults: featureInspectionHook.processAndDisplayFeatures
+    onResults: handleOsmQueryResults,
   });
 
   const initialGeoServerUrl = 'http://www.minfra.gba.gob.ar/ambientales/geoserver';
@@ -947,5 +958,3 @@ export default function GeoMapperClient() {
     </div>
   );
 }
-
-    
