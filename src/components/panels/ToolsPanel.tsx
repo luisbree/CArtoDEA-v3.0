@@ -1,3 +1,4 @@
+
 "use client";
 
 import React from 'react';
@@ -5,7 +6,7 @@ import DraggablePanel from './DraggablePanel';
 import DrawingToolbar from '@/components/drawing-tools/DrawingToolbar';
 import OSMCategorySelector from '@/components/osm-integration/OSMCategorySelector';
 import OSMDownloadOptions from '@/components/osm-integration/OSMDownloadOptions';
-import { Wrench, Map as MapIcon } from 'lucide-react';
+import { Wrench, Map as MapIcon, HelpCircle } from 'lucide-react';
 import {
   Accordion,
   AccordionContent,
@@ -14,6 +15,9 @@ import {
 } from "@/components/ui/accordion";
 import { Separator } from '@/components/ui/separator';
 import type { MapLayer } from '@/lib/types';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+import type { useOsmQuery } from '@/hooks/osm-integration/useOsmQuery';
 
 
 interface OSMCategory {
@@ -42,6 +46,7 @@ interface ToolsPanelProps {
   onSelectedOSMCategoriesChange: (ids: string[]) => void;
   isDownloading: boolean;
   onDownloadOSMLayers: (format: 'geojson' | 'kml' | 'shp') => void;
+  osmQueryHook: ReturnType<typeof useOsmQuery>;
   style?: React.CSSProperties;
 }
 
@@ -61,6 +66,7 @@ const ToolsPanel: React.FC<ToolsPanelProps> = ({
   isFetchingOSM, onFetchOSMDataTrigger, osmCategoriesForSelection, selectedOSMCategoryIds, 
   onSelectedOSMCategoriesChange,
   isDownloading, onDownloadOSMLayers,
+  osmQueryHook,
   style,
 }) => {
 
@@ -106,11 +112,32 @@ const ToolsPanel: React.FC<ToolsPanelProps> = ({
                 />
               </AccordionTrigger>
               <AccordionContent className="p-3 pt-2 space-y-3 border-t border-white/10 bg-transparent rounded-b-md">
-                <OSMCategorySelector
-                    osmCategoriesForSelection={osmCategoriesForSelection}
-                    selectedOSMCategoryIds={selectedOSMCategoryIds}
-                    onSelectedOSMCategoriesChange={onSelectedOSMCategoriesChange} 
-                />
+                
+                <div className="space-y-1">
+                  <h4 className="text-xs font-semibold text-white">Consulta Puntual de OSM</h4>
+                   <Button
+                    onClick={osmQueryHook.toggle}
+                    variant="outline"
+                    className={cn(
+                      "w-full h-8 text-xs border-dashed",
+                      osmQueryHook.isActive ? "bg-primary/80 text-white border-primary" : "bg-black/20 hover:bg-black/40 border-white/30 text-white/90"
+                    )}
+                   >
+                     <HelpCircle className="h-4 w-4 mr-2" />
+                     {osmQueryHook.isActive ? 'Desactivar Consulta OSM' : 'Activar Consulta OSM'}
+                   </Button>
+                </div>
+                
+                 <Separator className="my-2 bg-white/10" />
+
+                <div className="space-y-1">
+                  <h4 className="text-xs font-semibold text-white">Obtener Datos OSM por Área</h4>
+                  <OSMCategorySelector
+                      osmCategoriesForSelection={osmCategoriesForSelection}
+                      selectedOSMCategoryIds={selectedOSMCategoryIds}
+                      onSelectedOSMCategoriesChange={onSelectedOSMCategoriesChange} 
+                  />
+                </div>
                 <OSMDownloadOptions
                     isFetchingOSM={isFetchingOSM}
                     onFetchOSMDataTrigger={onFetchOSMDataTrigger}

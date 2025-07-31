@@ -50,6 +50,7 @@ import { useGeoServerLayers } from '@/hooks/geoserver-connection/useGeoServerLay
 import { useFloatingPanels } from '@/hooks/panels/useFloatingPanels';
 import { useMapCapture, type MapCaptureData } from '@/hooks/map-tools/useMapCapture';
 import { useWfsLibrary } from '@/hooks/wfs-library/useWfsLibrary';
+import { useOsmQuery } from '@/hooks/osm-integration/useOsmQuery';
 import { useToast } from "@/hooks/use-toast";
 
 import type { OSMCategoryConfig, GeoServerDiscoveredLayer, BaseLayerOptionForSelect, MapLayer, ChatMessage, BaseLayerSettings, NominatimResult } from '@/lib/types';
@@ -238,6 +239,13 @@ export default function GeoMapperClient() {
   
   const wfsLibraryHook = useWfsLibrary({
     onAddLayer: layerManagerHook.handleAddHybridLayer,
+  });
+
+  const osmQueryHook = useOsmQuery({
+    mapRef,
+    mapElementRef,
+    isMapReady,
+    onResults: featureInspectionHook.processAndDisplayFeatures
   });
 
   const initialGeoServerUrl = 'http://www.minfra.gba.gob.ar/ambientales/geoserver';
@@ -797,6 +805,7 @@ export default function GeoMapperClient() {
             isDownloading={osmDataHook.isDownloading}
             onDownloadOSMLayers={osmDataHook.handleDownloadOSMLayers}
             style={{ top: `${panels.tools.position.y}px`, left: `${panels.tools.position.x}px`, zIndex: panels.tools.zIndex }}
+            osmQueryHook={osmQueryHook}
           />
         )}
 
