@@ -232,13 +232,12 @@ export default function GeoMapperClient() {
     onAddLayer: layerManagerHook.handleAddHybridLayer,
   });
 
-  const handleOsmQueryResults = (features: Feature<Geometry>[], layerName: string) => {
-    const plainData = featureInspectionHook.extractPlainAttributes(features);
-    featureInspectionHook.processAndDisplayFeatures(plainData, layerName);
-    
-    // Auto-open the panel if it was minimized
-    if (panels.attributes.isMinimized) {
+  const handleOsmQueryResults = (plainData: PlainFeatureData[], layerName: string) => {
+    if (plainData && plainData.length > 0) {
+      featureInspectionHook.processAndDisplayFeatures(plainData, layerName);
+      if (panels.attributes.isMinimized) {
         togglePanelMinimize('attributes');
+      }
     }
   };
   
@@ -805,8 +804,8 @@ export default function GeoMapperClient() {
             onSelectedOSMCategoriesChange={osmDataHook.setSelectedOSMCategoryIds}
             isDownloading={osmDataHook.isDownloading}
             onDownloadOSMLayers={osmDataHook.handleDownloadOSMLayers}
-            style={{ top: `${panels.tools.position.y}px`, left: `${panels.tools.position.x}px`, zIndex: panels.tools.zIndex }}
             osmQueryHook={osmQueryHook}
+            style={{ top: `${panels.tools.position.y}px`, left: `${panels.tools.position.x}px`, zIndex: panels.tools.zIndex }}
           />
         )}
 
@@ -829,7 +828,7 @@ export default function GeoMapperClient() {
               }
             }}
             onExtractByPolygon={layerManagerHook.handleExtractByPolygon}
-            onExtractBySelection={layerManagerHook.handleExtractBySelection}
+            onExtractBySelection={() => layerManagerHook.handleExtractBySelection(featureInspectionHook.selectedFeatures)}
             onExportLayer={layerManagerHook.handleExportLayer}
             onRenameLayer={layerManagerHook.renameLayer}
             isDrawingSourceEmptyOrNotPolygon={layerManagerHook.isDrawingSourceEmptyOrNotPolygon}

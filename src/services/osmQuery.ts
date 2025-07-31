@@ -2,24 +2,41 @@
 'use server';
 
 import type { Coordinate } from 'ol/coordinate';
-import type { ProjectionLike } from 'ol/proj';
 import { get as getProjection, transform } from 'ol/proj';
 import GeoJSON from 'ol/format/GeoJSON';
 import type Feature from 'ol/Feature';
 import type { Geometry } from 'ol/geom';
 import osmtogeojson from 'osmtogeojson';
 import { nanoid } from 'nanoid';
+import type { PlainFeatureData } from '@/lib/types';
+
+
+const extractPlainAttributes = (features: Feature<Geometry>[]): PlainFeatureData[] => {
+    if (!features) return [];
+    
+    return features.map(feature => {
+        const properties = feature.getProperties();
+        // Remove OpenLayers-specific properties and the geometry
+        delete properties.geometry;
+        delete properties.memberOf;
+        
+        return {
+            id: feature.getId() as string,
+            attributes: properties,
+        };
+    });
+};
 
 /**
  * Queries the Overpass API for OSM features at a specific point.
  * @param coordinate The coordinate of the click event in the map's projection.
- * @param mapProjection The projection of the map.
- * @returns A promise that resolves to an array of OpenLayers Features.
+ * @param mapProjection The projection code of the map.
+ * @returns A promise that resolves to an array of PlainFeatureData objects.
  */
 export async function queryOsmFeaturesByPoint(
     coordinate: Coordinate,
     mapProjection: string,
-): Promise<Feature<Geometry>[]> {
+): Promise<PlainFeatureData[]> {
 
     const mapProj = getProjection(mapProjection);
     if (!mapProj) {
@@ -68,28 +85,22 @@ export async function queryOsmFeaturesByPoint(
         }
 
         const geojsonFormat = new GeoJSON({
-            featureProjection: mapProj,
-            dataProjection: 'EPSG:4326'
+            // Since we are not creating OL features to send to the client,
+            // we don't need to specify projections here.
         });
 
         const features = geojsonFormat.readFeatures(geojsonData);
         
-        // Ensure all features have a unique ID and clean up properties
+        // Ensure all features have a unique ID
         features.forEach(feature => {
             if (!feature.getId()) {
                 feature.setId(nanoid());
             }
-            // Sanitize properties to prevent passing complex objects that Next.js dislikes.
-            // The 'memberOf' property is a common source of circular/complex structures.
-            const props = feature.getProperties();
-            delete props.geometry; // geometry is already handled by OpenLayers
-            if (props.memberOf) {
-              delete props.memberOf;
-            }
-            feature.setProperties(props, true);
         });
 
-        return features;
+        // Convert complex OL features to plain data objects BEFORE returning from the server
+        return extractPlainAttributes(features);
+
     } catch (error) {
         console.error("Overpass query failed:", error);
         throw error;

@@ -4,15 +4,15 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import type { Map, MapBrowserEvent } from 'ol';
 import { useToast } from "@/hooks/use-toast";
-import type Feature from 'ol/Feature';
 import { queryOsmFeaturesByPoint } from '@/services/osmQuery';
-import type { Geometry } from 'ol/geom';
+import type { PlainFeatureData } from '@/lib/types';
+
 
 interface UseOsmQueryProps {
     mapRef: React.RefObject<Map | null>;
     mapElementRef: React.RefObject<HTMLDivElement | null>;
     isMapReady: boolean;
-    onResults: (features: Feature<Geometry>[], layerName: string) => void;
+    onResults: (plainData: PlainFeatureData[], layerName: string) => void;
 }
 
 export const useOsmQuery = ({
@@ -38,10 +38,10 @@ export const useOsmQuery = ({
         toast({ description: 'Consultando datos de OSM...' });
 
         try {
-            const features = await queryOsmFeaturesByPoint(event.coordinate, mapRef.current.getView().getProjection().getCode());
+            const plainData = await queryOsmFeaturesByPoint(event.coordinate, mapRef.current.getView().getProjection().getCode());
             
-            if (features.length > 0) {
-                onResultsRef.current(features, 'Consulta OSM');
+            if (plainData.length > 0) {
+                onResultsRef.current(plainData, 'Consulta OSM');
             } else {
                 toast({ description: 'No se encontraron elementos de OSM en esa ubicación.' });
             }
