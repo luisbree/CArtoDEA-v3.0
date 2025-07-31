@@ -25,7 +25,7 @@ import type { Source as TileSource } from 'ol/source';
 
 
 import MapView, { BASE_LAYER_DEFINITIONS } from '@/components/map-view';
-import AttributesPanel from '@/components/panels/AttributesPanel'; 
+import AttributesPanelComponent from '@/components/feature-attributes-panel'; 
 import ToolsPanel from '@/components/panels/ToolsPanel';
 import LegendPanel from '@/components/panels/LegendPanel';
 import AIPanel from '@/components/panels/AIPanel';
@@ -848,7 +848,7 @@ export default function GeoMapperClient() {
         )}
 
         {panels.attributes && !panels.attributes.isMinimized && (
-          <AttributesPanel
+          <AttributesPanelComponent
             panelRef={attributesPanelRef}
             isCollapsed={panels.attributes.isCollapsed}
             onToggleCollapse={() => togglePanelCollapse('attributes')}
