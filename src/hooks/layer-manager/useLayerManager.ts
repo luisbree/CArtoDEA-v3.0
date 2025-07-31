@@ -814,3 +814,5 @@ export const useLayerManager = ({
     clearLandsatFootprintsLayer,
   };
 };
+
+    
