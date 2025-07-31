@@ -196,7 +196,7 @@ export const useLayerManager = ({
                   name: layerTitle || layerName,
                   type: 'wfs',
                   gsLayerName: layerName,
-                  isDeas: true,
+                  isDeas: serverUrl.includes('minfra.gba.gob.ar'), // Simple check for now
                   bbox: bbox,
                   linkedWmsLayerId: wmsLayerId
               }
@@ -209,7 +209,7 @@ export const useLayerManager = ({
               visible: true,
               opacity: 1,
               type: 'wfs',
-              isDeas: true,
+              isDeas: serverUrl.includes('minfra.gba.gob.ar'),
           }, false);
           
           updateGeoServerDiscoveredLayerState(layerName, true, 'wfs');
