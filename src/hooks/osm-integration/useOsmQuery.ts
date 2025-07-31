@@ -37,7 +37,7 @@ export const useOsmQuery = ({
         toast({ description: 'Consultando datos de OSM...' });
 
         try {
-            const features = await queryOsmFeaturesByPoint(event.coordinate, mapRef.current.getView().getProjection());
+            const features = await queryOsmFeaturesByPoint(event.coordinate, mapRef.current.getView().getProjection().getCode());
             
             if (features.length > 0) {
                 onResultsRef.current(features, 'Consulta OSM');
