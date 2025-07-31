@@ -108,7 +108,7 @@ export const useLayerManager = ({
     return () => {
       source.un('addfeature', checkDrawingSource);
       source.un('removefeature', checkDrawingSource);
-      source.un('clear', checkDrawingSource);
+      source.on('clear', checkDrawingSource);
     };
   }, [drawingSourceRef]);
 
